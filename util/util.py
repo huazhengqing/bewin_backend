@@ -12,6 +12,7 @@ import ccxt.async as ccxt
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import conf.conf_ex
+import conf.conf_aliyun
 
 
 def get_log(name = __name__):
@@ -54,12 +55,12 @@ def get_exchange(id, use_private_interface):
                     exchange.uid = conf.conf_ex.conf_ex[id]['uid']                # QuadrigaCX requires uid!
         
         if id in conf.conf_ex.conf_ex:
-            if 'rateLimit' in conf.conf_ex.conf_ex[id] and conf.conf_ex.conf_ex[id]['rateLimit'] > 1000:
+            if 'rateLimit' in conf.conf_ex.conf_ex[id] and conf.conf_ex.conf_ex[id]['rateLimit'] > exchange.rateLimit:
                 exchange.rateLimit = conf.conf_ex.conf_ex[id]['rateLimit']
-        
-        # for test by local pc
-        if id in ['binance', 'huobi', 'huobicny', 'huobipro', 'okcoincny', 'okcoinusd', 'okex', 'zb']:
-            exchange.aiohttp_proxy = conf.conf_ex.proxies_aiohttp[0]
+
+        if conf.conf_aliyun.dev_or_product == 1:
+            if id in ['binance', 'huobi', 'huobicny', 'huobipro', 'okcoincny', 'okcoinusd', 'okex', 'zb']:
+                exchange.aiohttp_proxy = conf.conf_ex.proxies_aiohttp[0]
         
         #exchange.proxy = proxies_cors[0]
         #exchange.aiohttp_proxy = proxies_aiohttp[0]

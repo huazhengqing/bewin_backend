@@ -62,8 +62,6 @@ pip install --upgrade pydatahub
 华南1(深圳)|cn-shenzhen|https://dh-cn-shenzhen.aliyuncs.com|http://dh-cn-shenzhen.aliyun-inc.com|http://dh-cn-shenzhen-int-vpc.aliyuncs.com
 亚太东南1(新加坡)|ap-southeast-1|https://dh-singapore.aliyuncs.com|http://dh-singapore.aliyun-inc.com|http://dh-singapore-int-vpc.aliyuncs.com
 
-DataHub 对接 mysql 时，mysql 只能使用经典网络。VPC 提示错误。
-
 mysql 白名单，华南:
 ```
 11.200.0.0/16

@@ -13,10 +13,8 @@ from concurrent.futures import ThreadPoolExecutor
 import ccxt.async as ccxt
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
-import conf.conf
+import conf.conf_ex
 import util.util
-import util.db_base
-import util.exchange_data
 from util.exchange_base import exchange_base
 #logger = util.util.get_log(__name__)
 

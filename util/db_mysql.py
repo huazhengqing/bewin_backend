@@ -17,14 +17,26 @@ logger = util.util.get_log(__name__)
 
 class db_mysql():
     __pool = None
-    def __init__(self, host, port, user, password, db_name = None):
+    def __init__(self):
+        dev_or_product = conf.conf_aliyun.dev_or_product
+        if dev_or_product == 1:
+            host = conf.conf_aliyun.conf_aliyun_mysql['db_host_dev']
+            port = conf.conf_aliyun.conf_aliyun_mysql['db_port_dev']
+            user = conf.conf_aliyun.conf_aliyun_mysql['user_dev']
+            password = conf.conf_aliyun.conf_aliyun_mysql['password_dev']
+        elif dev_or_product == 2:
+            host = conf.conf_aliyun.conf_aliyun_mysql['db_host_product']
+            port = conf.conf_aliyun.conf_aliyun_mysql['db_port_product']
+            user = conf.conf_aliyun.conf_aliyun_mysql['user_product']
+            password = conf.conf_aliyun.conf_aliyun_mysql['password_product']
         self.db_host = host
         self.db_port = int(port)
         self.user = user
         self.password = str(password)
-        self.db = db_name
-        self.mincached = 1
-        self.maxcached = 30
+        self.db = conf.conf_aliyun.conf_aliyun_mysql['db']
+        self.charset = conf.conf_aliyun.conf_aliyun_mysql['charset']
+        self.mincached = conf.conf_aliyun.conf_aliyun_mysql['mincached']
+        self.maxcached = conf.conf_aliyun.conf_aliyun_mysql['maxcached']
         self.conn = None
         self.cursor = None
 
@@ -39,7 +51,7 @@ class db_mysql():
                 passwd = self.password,
                 db = self.db,
                 use_unicode = False,
-                charset = "utf8",
+                charset = self.charset,
                 cursorclass = pymysql.cursors
                 )
         if self.conn is None:

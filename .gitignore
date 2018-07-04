@@ -4,7 +4,9 @@
 logs/*
 db/*
 conf/*
-func/func_python_spread/index.py
+func/func_python_spread/*
+!func/func_python_spread/*.zip
+!func/func_python_spread/index.py
 sql_blink/*
 
 

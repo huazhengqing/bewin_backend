@@ -58,12 +58,12 @@ class FCContext:
     {
       "eventId": "0:12345",
       "systemTime": 1463000123000,
-      "data": "[\"col1's value\",\"col2's value\"]"
+      "data": "[\"f_ex_id\",\"f_symbol\"]"
     },
     {
       "eventId": "0:12346",
       "systemTime": 1463000156000,
-      "data": "[\"col1's value\",\"col2's value\"]"
+      "data": "[\"f_ex_id\",\"f_symbol\"]"
     }
   ]
 }
@@ -77,36 +77,4 @@ data 内容:
 
 ## mysql 表结构:
 
-```sql
-CREATE TABLE `t_ticker_crrent` (
-  `f_ex_id` varchar(64) NOT NULL,
-  `f_symbol` varchar(32) NOT NULL,
-  `f_ts` bigint(20) NOT NULL,
-  `f_bid` double NOT NULL,
-  `f_bid_volume` double NOT NULL,
-  `f_ask` double NOT NULL,
-  `f_ask_volume` double NOT NULL,
-  `f_vwap` double NOT NULL,
-  `f_open` double NOT NULL,
-  `f_high` double NOT NULL,
-  `f_low` double NOT NULL,
-  `f_close` double NOT NULL,
-  `f_last` double NOT NULL,
-  `f_previous_close` double NOT NULL,
-  `f_change` double NOT NULL,
-  `f_percentage` double NOT NULL,
-  `f_average` double NOT NULL,
-  `f_base_volume` double NOT NULL,
-  `f_quote_volume` double NOT NULL,
-  PRIMARY KEY (`f_ex_id`,`f_symbol`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-
-CREATE TABLE `t_spread_current` (
-  `f_symbol` varchar(32) NOT NULL,
-  `f_ex1` varchar(64) NOT NULL,
-  `f_ex2` varchar(64) NOT NULL,
-  `f_ts` bigint(20) NOT NULL,
-  `f_spread` double NOT NULL,
-  PRIMARY KEY (`f_symbol`,`f_ex1`,`f_ex2`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
-```
+见 sql_mysql

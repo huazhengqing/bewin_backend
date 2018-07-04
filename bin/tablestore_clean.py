@@ -9,11 +9,19 @@ import conf.conf_aliyun
 from tablestore import *
 
 
-OTS_ID = conf.conf_aliyun.conf_aliyun_tablestore['access_id']
-OTS_SECRET = conf.conf_aliyun.conf_aliyun_tablestore['access_key']
-OTS_ENDPOINT = conf.conf_aliyun.conf_aliyun_tablestore['endpoint']
-OTS_INSTANCE = conf.conf_aliyun.conf_aliyun_tablestore['instance']
+dev_or_product = conf.conf_aliyun.dev_or_product
+if dev_or_product == 1:
+    OTS_ID = conf.conf_aliyun.conf_aliyun_tablestore['access_id_dev']
+    OTS_SECRET = conf.conf_aliyun.conf_aliyun_tablestore['access_key_dev']
+    OTS_ENDPOINT = conf.conf_aliyun.conf_aliyun_tablestore['endpoint_dev']
+    OTS_INSTANCE = conf.conf_aliyun.conf_aliyun_tablestore['instance_dev']
+elif dev_or_product == 2:
+    OTS_ID = conf.conf_aliyun.conf_aliyun_tablestore['access_id_product']
+    OTS_SECRET = conf.conf_aliyun.conf_aliyun_tablestore['access_key_product']
+    OTS_ENDPOINT = conf.conf_aliyun.conf_aliyun_tablestore['endpoint_product']
+    OTS_INSTANCE = conf.conf_aliyun.conf_aliyun_tablestore['instance_product']
 client = OTSClient(OTS_ENDPOINT, OTS_ID, OTS_SECRET, OTS_INSTANCE)
+
 
 for table_name,v in conf.conf_aliyun.conf_aliyun_tablestore['tables'].items():
     try:
