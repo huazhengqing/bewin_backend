@@ -226,14 +226,14 @@ class exchange_datahub():
         f_ex_id = ex.ex.id
         for symbol in ex.ex.symbols:
             f_symbol = symbol
-            f_base = ex.ex.markets[symbol]['base'] if ex.ex.markets[symbol]['base'] is not None else ''
-            f_quote = ex.ex.markets[symbol]['quote'] if ex.ex.markets[symbol]['quote'] is not None else ''
+            f_base = ex.ex.markets[symbol]['base'] if ex.ex.markets[symbol].get('base') is not None else ''
+            f_quote = ex.ex.markets[symbol]['quote'] if ex.ex.markets[symbol].get('quote') is not None else ''
             f_fee_maker = ex.ex.markets[symbol]['maker'] if ex.ex.markets[symbol].get('maker') is not None else 0
             f_fee_taker = ex.ex.markets[symbol]['taker'] if ex.ex.markets[symbol].get('taker') is not None else 0
-            f_precision_amount = ex.ex.markets[symbol]['precision']['amount'] if ex.ex.markets[symbol]['precision'].get('amount') is not None else 0
-            f_precision_price = ex.ex.markets[symbol]['precision']['price'] if ex.ex.markets[symbol]['precision'].get('price') is not None else 0
-            f_limits_amount_min = ex.ex.markets[symbol]['limits']['amount']['min'] if ex.ex.markets[symbol]['limits'].get('amount') is not None else 0
-            f_limits_price_min = ex.ex.markets[symbol]['limits']['price']['min'] if ex.ex.markets[symbol]['limits'].get('price') is not None else 0
+            f_precision_amount = ex.ex.markets[symbol]['precision']['amount'] if ex.ex.markets[symbol].get('precision') is not None and ex.ex.markets[symbol]['precision'].get('amount') is not None else 0
+            f_precision_price = ex.ex.markets[symbol]['precision']['price'] if ex.ex.markets[symbol].get('precision') is not None and ex.ex.markets[symbol]['precision'].get('price') is not None else 0
+            f_limits_amount_min = ex.ex.markets[symbol]['limits']['amount']['min'] if ex.ex.markets[symbol].get('limits') is not None and ex.ex.markets[symbol]['limits'].get('amount') is not None else 0
+            f_limits_price_min = ex.ex.markets[symbol]['limits']['price']['min'] if ex.ex.markets[symbol].get('limits') is not None and ex.ex.markets[symbol]['limits'].get('price') is not None else 0
             f_ts = int(round(time.time() * 1000))
             record = TupleRecord(schema=topic.record_schema)
             record.values = [f_ex_id, f_symbol, f_base, f_quote, f_fee_maker, f_fee_taker, f_precision_amount, f_precision_price, f_limits_amount_min, f_limits_price_min, f_ts]
@@ -390,7 +390,7 @@ class exchange_datahub():
                 ex1_bid = task_record[3]
                 ex1_ask = task_record[5]
                 ex1_ts = task_record[2]
-                ex1_fee = self.exchanges[ex1].ex.markets[symbol]['taker'] if self.exchanges[ex1].ex.markets.get(symbol) is not None and self.exchanges[ex1].ex.markets[symbol].get('taker') is not None else 0.0
+                ex1_fee = self.exchanges[ex1].ex.markets[symbol]['taker'] if self.exchanges[ex1].ex.markets is not None and self.exchanges[ex1].ex.markets.get(symbol) is not None and self.exchanges[ex1].ex.markets[symbol].get('taker') is not None else 0.0
                 record2s = self.symbol_ex_ticker[symbol] if self.symbol_ex_ticker.get(symbol) is not None else {}
                 records = []
                 for ex2, v in record2s.items():
@@ -400,7 +400,7 @@ class exchange_datahub():
                     ex2_bid = v["f_bid"]
                     ex2_ask = v["f_ask"]
                     ex2_ts = v["f_ts"]
-                    ex2_fee = self.exchanges[ex2].ex.markets[symbol]['taker'] if self.exchanges[ex2].ex.markets.get(symbol) is not None and self.exchanges[ex2].ex.markets[symbol].get('taker') is not None else 0.0
+                    ex2_fee = self.exchanges[ex2].ex.markets[symbol]['taker'] if self.exchanges[ex2].ex.markets is not None and self.exchanges[ex2].ex.markets.get(symbol) is not None and self.exchanges[ex2].ex.markets[symbol].get('taker') is not None else 0.0
                     if abs(ex1_ts - ex2_ts) > 30000:
                         logger.info(self.to_string() + "run_calc_spread() abs(ex1_ts - ex2_ts)={0}".format(abs(ex1_ts - ex2_ts)))
                         continue
