@@ -27,14 +27,11 @@ logger = util.util.get_log(__name__)
 
 class exchange_datahub():
     def __init__(self):
-        self.project_name = ""
-        dev_or_product = conf.conf_aliyun.dev_or_product
-        if dev_or_product == 1:
-            access_id = conf.conf_aliyun.conf_aliyun_datahub['dev_access_id']
-            access_key = conf.conf_aliyun.conf_aliyun_datahub['dev_access_key']
-            endpoint = conf.conf_aliyun.conf_aliyun_datahub['dev_endpoint']
-            self.project_name = conf.conf_aliyun.conf_aliyun_datahub['dev_project']
-        elif dev_or_product == 2:
+        access_id = conf.conf_aliyun.conf_aliyun_datahub['dev_access_id']
+        access_key = conf.conf_aliyun.conf_aliyun_datahub['dev_access_key']
+        endpoint = conf.conf_aliyun.conf_aliyun_datahub['dev_endpoint']
+        self.project_name = conf.conf_aliyun.conf_aliyun_datahub['dev_project']
+        if conf.conf_aliyun.dev_or_product == 2:
             access_id = conf.conf_aliyun.conf_aliyun_datahub['product_access_id']
             access_key = conf.conf_aliyun.conf_aliyun_datahub['product_access_key']
             endpoint = conf.conf_aliyun.conf_aliyun_datahub['product_endpoint']
@@ -50,6 +47,10 @@ class exchange_datahub():
         self.queue_task_spread = asyncio.Queue()
         #self.executor_max_works = 5
         #self.executor = ThreadPoolExecutor(self.executor_max_works)
+
+    async def close(self):
+        for id, ex in self.exchanges.items():
+            await ex.close()
 
     def to_string(self):
         return "exchange_datahub({0}) ".format(self.project_name)
@@ -113,9 +114,26 @@ class exchange_datahub():
 
     async def pub_topic_once(self, ex_id, topic_name, func, *args, **kwargs):
         topic, shards = self.get_topic(topic_name)
-        records = await func(ex_id, topic, shards, *args, **kwargs)
-        logger.debug(self.to_string() + "pub_topic_once({0}, {1}) len(records) = {2}".format(ex_id, topic_name, len(records)))
-        self.pub_topic(topic_name, records)
+        c = 0
+        while True:
+            try:
+                records = await func(ex_id, topic, shards, *args, **kwargs)
+                logger.debug(self.to_string() + "pub_topic_once({0}, {1}) len(records) = {2}".format(ex_id, topic_name, len(records)))
+                self.pub_topic(topic_name, records)
+                return
+            except ccxt.RequestTimeout:
+                #logger.info(traceback.format_exc())
+                await asyncio.sleep(10)
+            except ccxt.DDoSProtection:
+                #logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+            except:
+                logger.error(self.to_string() + "pub_topic_once({0}, {1})".format(ex_id, topic_name))
+                #logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+                c = c + 1
+                if c > 10:
+                    return
 
     async def run_pub_topic(self, ex_id, topic_name, func, *args, **kwargs):
         topic, shards = self.get_topic(topic_name)
@@ -126,31 +144,31 @@ class exchange_datahub():
                 self.pub_topic(topic_name, records)
             except DatahubException:
                 logger.error(traceback.format_exc())
-                await asyncio.sleep(10)
+                #await asyncio.sleep(10)
             except ccxt.RequestTimeout:
-                logger.info(traceback.format_exc())
+                #logger.info(traceback.format_exc())
                 await asyncio.sleep(10)
             except ccxt.DDoSProtection:
-                logger.error(traceback.format_exc())
+                #logger.error(traceback.format_exc())
                 await asyncio.sleep(10)
             except ccxt.AuthenticationError:
                 logger.error(traceback.format_exc())
-                await asyncio.sleep(10)
+                #await asyncio.sleep(10)
             except ccxt.ExchangeNotAvailable:
                 logger.error(traceback.format_exc())
-                await asyncio.sleep(10)
+                #await asyncio.sleep(10)
             except ccxt.ExchangeError:
                 logger.error(traceback.format_exc())
-                await asyncio.sleep(10)
+                #await asyncio.sleep(10)
             except ccxt.NetworkError:
                 logger.error(traceback.format_exc())
-                await asyncio.sleep(10)
+                #await asyncio.sleep(10)
             except Exception:
                 logger.info(traceback.format_exc())
-                await asyncio.sleep(10)
+                #await asyncio.sleep(10)
             except:
                 logger.error(traceback.format_exc())
-                await asyncio.sleep(10)
+                #await asyncio.sleep(10)
 
     def run_get_topic(self, topic_name, func, *args, **kwargs):
         topic, shards = self.get_topic(topic_name)
@@ -166,16 +184,20 @@ class exchange_datahub():
                     cursor = get_result.next_cursor
         except DatahubException as e:
             logger.error(traceback.format_exc(e))
+            #await asyncio.sleep(10)
         except Exception:
             logger.info(traceback.format_exc())
+            #await asyncio.sleep(10)
         except:
             logger.error(traceback.format_exc())
+            #await asyncio.sleep(10)
 
     async def fetch_exchanges(self, ex_id, topic, shards):
         self.init_exchanges()
         records = []
         i = 0
         for id, ex in self.exchanges.items():
+            logger.debug(self.to_string() + "fetch_exchanges({0})".format(id))
             f_ex_id = id
             f_ex_name = ex.ex.name
             f_countries = ""
@@ -194,22 +216,24 @@ class exchange_datahub():
         if self.exchanges.get(ex_id) is None:
             self.exchanges[ex_id] = exchange_base(util.util.get_exchange(ex_id, False))
         ex = self.exchanges[ex_id]
+        logger.debug(self.to_string() + "fetch_markets({0})".format(ex_id))
         records = []
         if ex.ex.has['fetchMarkets'] is False:
+            logger.info(self.to_string() + "fetch_markets({0}) NOT has interface".format(ex_id))
             return records
         await ex.ex.load_markets()
         i = 0
         f_ex_id = ex.ex.id
         for symbol in ex.ex.symbols:
             f_symbol = symbol
-            f_base = ex.ex.markets[symbol]['base']
-            f_quote = ex.ex.markets[symbol]['quote']
+            f_base = ex.ex.markets[symbol]['base'] if ex.ex.markets[symbol]['base'] is not None else ''
+            f_quote = ex.ex.markets[symbol]['quote'] if ex.ex.markets[symbol]['quote'] is not None else ''
             f_fee_maker = ex.ex.markets[symbol]['maker'] if ex.ex.markets[symbol].get('maker') is not None else 0
             f_fee_taker = ex.ex.markets[symbol]['taker'] if ex.ex.markets[symbol].get('taker') is not None else 0
-            f_precision_amount = ex.ex.markets[symbol]['precision']['amount']
-            f_precision_price = ex.ex.markets[symbol]['precision']['price']
-            f_limits_amount_min = ex.ex.markets[symbol]['limits']['amount']['min']
-            f_limits_price_min = ex.ex.markets[symbol]['limits']['price']['min']
+            f_precision_amount = ex.ex.markets[symbol]['precision']['amount'] if ex.ex.markets[symbol]['precision'].get('amount') is not None else 0
+            f_precision_price = ex.ex.markets[symbol]['precision']['price'] if ex.ex.markets[symbol]['precision'].get('price') is not None else 0
+            f_limits_amount_min = ex.ex.markets[symbol]['limits']['amount']['min'] if ex.ex.markets[symbol]['limits'].get('amount') is not None else 0
+            f_limits_price_min = ex.ex.markets[symbol]['limits']['price']['min'] if ex.ex.markets[symbol]['limits'].get('price') is not None else 0
             f_ts = int(round(time.time() * 1000))
             record = TupleRecord(schema=topic.record_schema)
             record.values = [f_ex_id, f_symbol, f_base, f_quote, f_fee_maker, f_fee_taker, f_precision_amount, f_precision_price, f_limits_amount_min, f_limits_price_min, f_ts]
@@ -222,19 +246,36 @@ class exchange_datahub():
         if self.exchanges.get(ex_id) is None:
             self.exchanges[ex_id] = exchange_base(util.util.get_exchange(ex_id, False))
         ex = self.exchanges[ex_id]
+        logger.debug(self.to_string() + "fetch_tickers({0})".format(ex_id))
         records = []
         if ex.ex.has['fetchTickers'] is False:
-            await ex.ex.load_markets()
+            if ex.ex.symbols is None:
+                await ex.ex.load_markets()
             for symbol in ex.ex.symbols:
-                rs = await self.fetch_ticker(ex_id, topic, shards, symbol)
-                records.extend(rs)
+                try:
+                    rs = await self.fetch_ticker(ex_id, topic, shards, symbol)
+                    records.extend(rs)
+                except ccxt.RequestTimeout:
+                    #logger.info(traceback.format_exc())
+                    await asyncio.sleep(10)
+                except ccxt.DDoSProtection:
+                    #logger.error(traceback.format_exc())
+                    await asyncio.sleep(10)
+                except Exception:
+                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
+                    logger.error(traceback.format_exc())
+                    #await asyncio.sleep(10)
+                except:
+                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
+                    logger.error(traceback.format_exc())
+                    #await asyncio.sleep(10)
             return records
         tickers = await ex.ex.fetch_tickers()
         i = 0
         f_ex_id = ex.ex.id
         for symbol, ticker in tickers.items():
             f_symbol = symbol
-            f_ts = ticker['timestamp'] is not None and ticker['timestamp'] or int(round(time.time() * 1000))
+            f_ts = int(ticker['timestamp']) if ticker['timestamp'] is not None else int(round(time.time() * 1000))
             f_bid = ticker['bid'] is not None and ticker['bid'] or 0
             f_bid_volume = ticker['bidVolume'] is not None and ticker['bidVolume'] or 0
             f_ask = ticker['ask'] is not None and ticker['ask'] or 0
@@ -278,13 +319,14 @@ class exchange_datahub():
         if self.exchanges.get(ex_id) is None:
             self.exchanges[ex_id] = exchange_base(util.util.get_exchange(ex_id, False))
         ex = self.exchanges[ex_id]
+        logger.debug(self.to_string() + "fetch_ticker({0})".format(ex_id))
         records = []
-        if ex.ex.has['fetchTicker'] is False:
-            return records
+        #if ex.ex.has['fetchTicker'] is False:
+        #    return records
         ticker = await ex.ex.fetch_ticker(symbol)
         f_ex_id = ex.ex.id
         f_symbol = symbol
-        f_ts = ticker['timestamp'] is not None and ticker['timestamp'] or int(round(time.time() * 1000))
+        f_ts = int(ticker['timestamp']) if ticker['timestamp'] is not None else int(round(time.time() * 1000))
         f_bid = ticker['bid'] is not None and ticker['bid'] or 0
         f_bid_volume = ticker['bidVolume'] is not None and ticker['bidVolume'] or 0
         f_ask = ticker['ask'] is not None and ticker['ask'] or 0
@@ -344,30 +386,42 @@ class exchange_datahub():
                 task_record = await self.queue_task_spread.get()
                 symbol = task_record[1]
                 ex1 = task_record[0]
+                ex1_name = self.exchanges[ex1].ex.name
                 ex1_bid = task_record[3]
                 ex1_ask = task_record[5]
                 ex1_ts = task_record[2]
+                ex1_fee = self.exchanges[ex1].ex.markets[symbol]['taker'] if self.exchanges[ex1].ex.markets.get(symbol) is not None and self.exchanges[ex1].ex.markets[symbol].get('taker') is not None else 0.0
                 record2s = self.symbol_ex_ticker[symbol] if self.symbol_ex_ticker.get(symbol) is not None else {}
                 records = []
                 for ex2, v in record2s.items():
                     if ex2 == ex1:
                         continue
+                    ex2_name = self.exchanges[ex2].ex.name
                     ex2_bid = v["f_bid"]
                     ex2_ask = v["f_ask"]
                     ex2_ts = v["f_ts"]
-                    if abs(ex1_ts - ex2_ts) > 10000:
+                    ex2_fee = self.exchanges[ex2].ex.markets[symbol]['taker'] if self.exchanges[ex2].ex.markets.get(symbol) is not None and self.exchanges[ex2].ex.markets[symbol].get('taker') is not None else 0.0
+                    if abs(ex1_ts - ex2_ts) > 30000:
                         logger.info(self.to_string() + "run_calc_spread() abs(ex1_ts - ex2_ts)={0}".format(abs(ex1_ts - ex2_ts)))
                         continue
                     spread_ts = ex1_ts if ex1_ts > ex2_ts else ex2_ts
-
+                    f_fee = (ex1_bid * ex1_fee + ex2_ask * ex2_fee)
+    
+                    # ['f_symbol', 'f_ex1', 'f_ex1_name', 'f_ex1_bid', 'f_ex1_ts', 'f_ex1_fee', 'f_ex2', 'f_ex2_name', 'f_ex2_ask', 'f_ex2_ts', 'f_ex2_fee', 'f_ts', 'f_spread', 'f_fee', 'f_profit', 'f_profit_p']
+                    f_spread = ex1_bid-ex2_ask
+                    f_profit=(f_spread - f_fee)
+                    f_profit_p=(f_profit / ex1_bid) if ex1_bid > 0.0 else 0.0
                     record1 = TupleRecord(schema=topic.record_schema)
-                    record1.values = [symbol, ex1, ex2, spread_ts, ex1_bid-ex2_ask]
+                    record1.values = [symbol, ex1, ex1_name, ex1_bid, ex1_ts, ex1_fee, ex2, ex2_name, ex2_ask, ex2_ts, ex2_fee, spread_ts, f_spread, f_fee, f_profit, f_profit_p]
                     i = random.randint(1,100) % shard_count
                     record1.shard_id = shards[i].shard_id
                     records.append(record1)
 
+                    f_spread = ex2_bid-ex1_ask
+                    f_profit=(f_spread - f_fee)
+                    f_profit_p=(f_profit / ex2_bid) if ex2_bid > 0.0 else 0.0
                     record2 = TupleRecord(schema=topic.record_schema)
-                    record2.values = [symbol, ex2, ex1, spread_ts, ex2_bid-ex1_ask]
+                    record2.values = [symbol, ex2, ex2_name, ex2_bid, ex2_ts, ex2_fee, ex1, ex1_name, ex1_ask, ex1_ts, ex1_fee, spread_ts, f_spread, f_fee, f_profit, f_profit_p]
                     i = random.randint(1,100) % shard_count
                     record2.shard_id = shards[i].shard_id
                     records.append(record2)

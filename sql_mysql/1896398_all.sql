@@ -32,11 +32,24 @@ DROP TABLE IF EXISTS  `t_spread_current`;
 CREATE TABLE `t_spread_current` (
   `f_symbol` varchar(32) NOT NULL COMMENT '交易对',
   `f_ex1` varchar(64) NOT NULL COMMENT '交易所1',
+  `f_ex1_name` varchar(64) NOT NULL COMMENT '交易所1',
+  `f_ex1_bid` double NOT NULL COMMENT '交易所1买1价',
+  `f_ex1_ts` bigint(20) NOT NULL COMMENT '交易所1时间',
+  `f_ex1_fee` double NOT NULL COMMENT '交易所1手续费',
   `f_ex2` varchar(64) NOT NULL COMMENT '交易所2',
+  `f_ex2_name` varchar(64) NOT NULL COMMENT '交易所2',
+  `f_ex2_ask` double NOT NULL COMMENT '交易所2卖1价',
+  `f_ex2_ts` bigint(20) NOT NULL COMMENT '交易所2时间',
+  `f_ex2_fee` double NOT NULL COMMENT '交易所1手续费',
   `f_ts` bigint(20) NOT NULL COMMENT '时间',
   `f_spread` double NOT NULL COMMENT '价差(1买1-2卖1)',
+  `f_fee` double NOT NULL COMMENT '手续费',
+  `f_profit` double NOT NULL COMMENT '收益',
+  `f_profit_p` double NOT NULL COMMENT '收益(%)',
   PRIMARY KEY (`f_symbol`,`f_ex1`,`f_ex2`),
-  KEY `f_ts` (`f_ts`)
+  KEY `f_ts` (`f_ts`),
+  KEY `f_spread` (`f_spread`),
+  KEY `f_profit_p` (`f_profit_p`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 DROP TABLE IF EXISTS  `t_ticker_crrent`;

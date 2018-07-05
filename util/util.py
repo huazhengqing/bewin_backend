@@ -59,8 +59,8 @@ def get_exchange(id, use_private_interface):
                 exchange.rateLimit = conf.conf_ex.conf_ex[id]['rateLimit']
 
         if conf.conf_aliyun.dev_or_product == 1:
-            if id in ['binance', 'huobi', 'huobicny', 'huobipro', 'okcoincny', 'okcoinusd', 'okex', 'zb']:
-                exchange.aiohttp_proxy = conf.conf_ex.proxies_aiohttp[0]
+            #if id in ['binance', 'huobi', 'huobicny', 'huobipro', 'okcoincny', 'okcoinusd', 'okex', 'zb']:
+            exchange.aiohttp_proxy = conf.conf_ex.proxies_aiohttp[0]
         
         #exchange.proxy = proxies_cors[0]
         #exchange.aiohttp_proxy = proxies_aiohttp[0]
