@@ -11,15 +11,15 @@ from tablestore import *
 
 dev_or_product = conf.conf_aliyun.dev_or_product
 if dev_or_product == 1:
-    OTS_ID = conf.conf_aliyun.conf_aliyun_tablestore['access_id_dev']
-    OTS_SECRET = conf.conf_aliyun.conf_aliyun_tablestore['access_key_dev']
-    OTS_ENDPOINT = conf.conf_aliyun.conf_aliyun_tablestore['endpoint_dev']
-    OTS_INSTANCE = conf.conf_aliyun.conf_aliyun_tablestore['instance_dev']
+    OTS_ID = conf.conf_aliyun.conf_aliyun_tablestore['dev_access_id']
+    OTS_SECRET = conf.conf_aliyun.conf_aliyun_tablestore['dev_access_key']
+    OTS_ENDPOINT = conf.conf_aliyun.conf_aliyun_tablestore['dev_endpoint']
+    OTS_INSTANCE = conf.conf_aliyun.conf_aliyun_tablestore['dev_instance']
 elif dev_or_product == 2:
-    OTS_ID = conf.conf_aliyun.conf_aliyun_tablestore['access_id_product']
-    OTS_SECRET = conf.conf_aliyun.conf_aliyun_tablestore['access_key_product']
-    OTS_ENDPOINT = conf.conf_aliyun.conf_aliyun_tablestore['endpoint_product']
-    OTS_INSTANCE = conf.conf_aliyun.conf_aliyun_tablestore['instance_product']
+    OTS_ID = conf.conf_aliyun.conf_aliyun_tablestore['product_access_id']
+    OTS_SECRET = conf.conf_aliyun.conf_aliyun_tablestore['product_access_key']
+    OTS_ENDPOINT = conf.conf_aliyun.conf_aliyun_tablestore['product_endpoint']
+    OTS_INSTANCE = conf.conf_aliyun.conf_aliyun_tablestore['product_instance']
 client = OTSClient(OTS_ENDPOINT, OTS_ID, OTS_SECRET, OTS_INSTANCE)
 
 

@@ -13,15 +13,15 @@ logger = logging.getLogger()
 dev_or_product = 2
 
 if dev_or_product == 1:
-    host = conf_aliyun_mysql['db_host_dev']
-    port = conf_aliyun_mysql['db_port_dev']
-    user = conf_aliyun_mysql['user_dev']
-    password = conf_aliyun_mysql['password_dev']
+    host = conf_aliyun_mysql['dev_db_host']
+    port = conf_aliyun_mysql['dev_db_port']
+    user = conf_aliyun_mysql['dev_user']
+    password = conf_aliyun_mysql['dev_password']
 elif dev_or_product == 2:
-    host = conf_aliyun_mysql['db_host_product']
-    port = conf_aliyun_mysql['db_port_product']
-    user = conf_aliyun_mysql['user_product']
-    password = conf_aliyun_mysql['password_product']
+    host = conf_aliyun_mysql['product_db_host']
+    port = conf_aliyun_mysql['product_db_port']
+    user = conf_aliyun_mysql['product_user']
+    password = conf_aliyun_mysql['product_password']
 db_name = conf_aliyun_mysql['db']
 
 conn_read = pymysql.connect(
@@ -42,15 +42,15 @@ conn_write = pymysql.connect(
 
 
 if dev_or_product == 1:
-    access_id = conf_aliyun_datahub['access_id_dev']
-    access_key = conf_aliyun_datahub['access_key_dev']
-    endpoint = conf_aliyun_datahub['endpoint_dev']
-    project_name = conf_aliyun_datahub['project_dev']
+    access_id = conf_aliyun_datahub['dev_access_id']
+    access_key = conf_aliyun_datahub['dev_access_key']
+    endpoint = conf_aliyun_datahub['dev_endpoint']
+    project_name = conf_aliyun_datahub['dev_project']
 elif dev_or_product == 2:
-    access_id = conf_aliyun_datahub['access_id_product']
-    access_key = conf_aliyun_datahub['access_key_product']
-    endpoint = conf_aliyun_datahub['endpoint_product']
-    project_name = conf_aliyun_datahub['project_product']
+    access_id = conf_aliyun_datahub['product_access_id']
+    access_key = conf_aliyun_datahub['product_access_key']
+    endpoint = conf_aliyun_datahub['product_endpoint']
+    project_name = conf_aliyun_datahub['product_project']
 
 datahub = DataHub(access_id, access_key, endpoint)
 topic_name = "t_spread"

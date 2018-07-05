@@ -2,10 +2,15 @@
 import os
 import sys
 import time
+#import queue
 import random
 import asyncio
 import logging
 import traceback
+#import threading
+#import multiprocessing
+#import concurrent.futures
+#from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait, ALL_COMPLETED, FIRST_COMPLETED
 import ccxt.async as ccxt
 from datahub import DataHub
 from datahub.exceptions import DatahubException, ResourceExistException
@@ -25,15 +30,15 @@ class exchange_datahub():
         self.project_name = ""
         dev_or_product = conf.conf_aliyun.dev_or_product
         if dev_or_product == 1:
-            access_id = conf.conf_aliyun.conf_aliyun_datahub['access_id_dev']
-            access_key = conf.conf_aliyun.conf_aliyun_datahub['access_key_dev']
-            endpoint = conf.conf_aliyun.conf_aliyun_datahub['endpoint_dev']
-            self.project_name = conf.conf_aliyun.conf_aliyun_datahub['project_dev']
+            access_id = conf.conf_aliyun.conf_aliyun_datahub['dev_access_id']
+            access_key = conf.conf_aliyun.conf_aliyun_datahub['dev_access_key']
+            endpoint = conf.conf_aliyun.conf_aliyun_datahub['dev_endpoint']
+            self.project_name = conf.conf_aliyun.conf_aliyun_datahub['dev_project']
         elif dev_or_product == 2:
-            access_id = conf.conf_aliyun.conf_aliyun_datahub['access_id_product']
-            access_key = conf.conf_aliyun.conf_aliyun_datahub['access_key_product']
-            endpoint = conf.conf_aliyun.conf_aliyun_datahub['endpoint_product']
-            self.project_name = conf.conf_aliyun.conf_aliyun_datahub['project_product']
+            access_id = conf.conf_aliyun.conf_aliyun_datahub['product_access_id']
+            access_key = conf.conf_aliyun.conf_aliyun_datahub['product_access_key']
+            endpoint = conf.conf_aliyun.conf_aliyun_datahub['product_endpoint']
+            self.project_name = conf.conf_aliyun.conf_aliyun_datahub['product_project']
         #self.datahub = DataHub(access_id, access_key, endpoint, enable_pb=True)
         self.datahub = DataHub(access_id, access_key, endpoint)
         self.topic = None
@@ -41,10 +46,19 @@ class exchange_datahub():
         self.cursor_type = CursorType.LATEST
         self.get_limit_num = 30
         self.exchanges = dict()
+        self.symbol_ex_ticker = dict()
+        self.queue_task_spread = asyncio.Queue()
+        #self.executor_max_works = 5
+        #self.executor = ThreadPoolExecutor(self.executor_max_works)
 
     def to_string(self):
         return "exchange_datahub({0}) ".format(self.project_name)
 
+    def init_exchanges(self):
+        for id in ccxt.exchanges:
+            if self.exchanges.get(id) is None:
+                self.exchanges[id] = exchange_base(util.util.get_exchange(id, False))
+    
     def create_project(self):
         try:
             self.datahub.create_project(self.project_name, self.project_name)
@@ -74,10 +88,9 @@ class exchange_datahub():
         # block等待所有shard状态ready
         self.datahub.wait_shards_ready(self.project_name, topic_name)
         topic = self.datahub.get_topic(self.project_name, topic_name)
-        #logger.debug(self.to_string() + "pub_topic() topic={0}".format(topic))
+        #logger.debug(self.to_string() + "get_topic() topic={0}".format(topic))
         if topic.record_type != RecordType.TUPLE:
-            #logger.error(self.to_string() + "pub_topic() topic type illegal!")
-            raise Exception(self.to_string() + "pub_topic() topic type illegal!")
+            raise Exception(self.to_string() + "get_topic({0}) topic.record_type != RecordType.TUPLE".format(topic_name))
         shards_result = self.datahub.list_shard(self.project_name, topic_name)
         shards = shards_result.shards
         self.topic = topic
@@ -87,6 +100,7 @@ class exchange_datahub():
     def pub_topic(self, topic_name, records):
         if len(records) <= 0:
             return
+        #logger.debug(self.to_string() + "pub_topic({0}) len(records) = {1}".format(topic_name, len(records)))
         failed_indexs = self.datahub.put_records(self.project_name, topic_name, records)
         #logger.debug(self.to_string() + "pub_topic() failed_indexs = {0}".format(failed_indexs))
         i = 0
@@ -100,49 +114,47 @@ class exchange_datahub():
     async def pub_topic_once(self, ex_id, topic_name, func, *args, **kwargs):
         topic, shards = self.get_topic(topic_name)
         records = await func(ex_id, topic, shards, *args, **kwargs)
-        logger.debug(self.to_string() + "pub_topic({0}, {1}) records len = {2}".format(ex_id, topic_name, len(records)))
+        logger.debug(self.to_string() + "pub_topic_once({0}, {1}) len(records) = {2}".format(ex_id, topic_name, len(records)))
         self.pub_topic(topic_name, records)
 
     async def run_pub_topic(self, ex_id, topic_name, func, *args, **kwargs):
-        try:
-            topic, shards = self.get_topic(topic_name)
-            while True:
+        topic, shards = self.get_topic(topic_name)
+        while True:
+            try:
                 records = await func(ex_id, topic, shards, *args, **kwargs)
-                logger.debug(self.to_string() + "pub_topic({0}, {1}) records len = {2}".format(ex_id, topic_name, len(records)))
-                if len(records) <= 0:
-                    continue
+                logger.debug(self.to_string() + "run_pub_topic({0}, {1}) len(records) = {2}".format(ex_id, topic_name, len(records)))
                 self.pub_topic(topic_name, records)
-        except DatahubException:
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
-        except ccxt.RequestTimeout:
-            logger.info(traceback.format_exc())
-            await asyncio.sleep(10)
-        except ccxt.DDoSProtection:
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
-        except ccxt.AuthenticationError:
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
-        except ccxt.ExchangeNotAvailable:
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
-        except ccxt.ExchangeError:
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
-        except ccxt.NetworkError:
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
-        except Exception:
-            logger.info(traceback.format_exc())
-            await asyncio.sleep(10)
-        except:
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
+            except DatahubException:
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+            except ccxt.RequestTimeout:
+                logger.info(traceback.format_exc())
+                await asyncio.sleep(10)
+            except ccxt.DDoSProtection:
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+            except ccxt.AuthenticationError:
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+            except ccxt.ExchangeNotAvailable:
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+            except ccxt.ExchangeError:
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+            except ccxt.NetworkError:
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
+            except Exception:
+                logger.info(traceback.format_exc())
+                await asyncio.sleep(10)
+            except:
+                logger.error(traceback.format_exc())
+                await asyncio.sleep(10)
 
     def run_get_topic(self, topic_name, func, *args, **kwargs):
+        topic, shards = self.get_topic(topic_name)
         try:
-            topic, shards = self.get_topic(topic_name)
             dict_shared_id_cursor = {}
             for shard_id in shards:
                 cursor = self.datahub.get_cursor(self.project_name, topic_name, shard_id, self.cursor_type).cursor
@@ -160,24 +172,22 @@ class exchange_datahub():
             logger.error(traceback.format_exc())
 
     async def fetch_exchanges(self, ex_id, topic, shards):
+        self.init_exchanges()
         records = []
         i = 0
-        for id in ccxt.exchanges:
-            exchange = getattr(ccxt, id)
-            ex = exchange()
+        for id, ex in self.exchanges.items():
             f_ex_id = id
-            f_ex_name = ex.name
+            f_ex_name = ex.ex.name
             f_countries = ""
-            for country in ex.countries:
+            for country in ex.ex.countries:
                 f_countries = country + ","
-            f_url_www = ex.urls['www'][0] if type(ex.urls['www']) is list else ex.urls['www']
+            f_url_www = ex.ex.urls['www'][0] if type(ex.ex.urls['www']) is list else ex.ex.urls['www']
             f_ts = int(round(time.time() * 1000))
             record = TupleRecord(schema=topic.record_schema)
             record.values = [f_ex_id, f_ex_name, f_countries, f_url_www, f_ts]
             record.shard_id = shards[i % len(shards)].shard_id
             records.append(record)
             i = i + 1
-            await ex.close()
         return records
 
     async def fetch_markets(self, ex_id, topic, shards):
@@ -214,6 +224,10 @@ class exchange_datahub():
         ex = self.exchanges[ex_id]
         records = []
         if ex.ex.has['fetchTickers'] is False:
+            await ex.ex.load_markets()
+            for symbol in ex.ex.symbols:
+                rs = await self.fetch_ticker(ex_id, topic, shards, symbol)
+                records.extend(rs)
             return records
         tickers = await ex.ex.fetch_tickers()
         i = 0
@@ -237,11 +251,27 @@ class exchange_datahub():
             f_average = ticker['average'] is not None and ticker['average'] or 0
             f_base_volume = ticker['baseVolume'] is not None and ticker['baseVolume'] or 0
             f_quote_volume = ticker['quoteVolume'] is not None and ticker['quoteVolume'] or 0
+            v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
             record = TupleRecord(schema=topic.record_schema)
-            record.values = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
+            record.values = v
             record.shard_id = shards[i % len(shards)].shard_id
             records.append(record)
             i = i + 1
+            if self.symbol_ex_ticker.get(f_symbol) is None:
+                self.symbol_ex_ticker[f_symbol] = {
+                    f_ex_id:{
+                        "f_ts": f_ts,
+                        "f_bid": f_bid,
+                        "f_ask": f_ask,
+                    }
+                }
+            else:
+                self.symbol_ex_ticker[f_symbol][f_ex_id] = {
+                    "f_ts": f_ts,
+                    "f_bid": f_bid,
+                    "f_ask": f_ask,
+                }
+            await self.queue_task_spread.put(v)
         return records
 
     async def fetch_ticker(self, ex_id, topic, shards, symbol):
@@ -271,12 +301,94 @@ class exchange_datahub():
         f_average = ticker['average'] is not None and ticker['average'] or 0
         f_base_volume = ticker['baseVolume'] is not None and ticker['baseVolume'] or 0
         f_quote_volume = ticker['quoteVolume'] is not None and ticker['quoteVolume'] or 0
+        v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
         record = TupleRecord(schema=topic.record_schema)
-        record.values = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
+        record.values = v
         i = random.randint(1,100) % len(shards)
         record.shard_id = shards[i].shard_id
+        if self.symbol_ex_ticker.get(f_symbol) is None:
+            self.symbol_ex_ticker[f_symbol] = {
+                f_ex_id:{
+                    "f_ts": f_ts,
+                    "f_bid": f_bid,
+                    "f_ask": f_ask,
+                }
+            }
+        else:
+            self.symbol_ex_ticker[f_symbol][f_ex_id] = {
+                "f_ts": f_ts,
+                "f_bid": f_bid,
+                "f_ask": f_ask,
+            }
+        await self.queue_task_spread.put(v)
         records.append(record)
         return records
+
+    async def run_calc_spread(self, topic_name="t_spread"):
+        logger.debug(self.to_string() + "run_calc_spread()")
+        topic, shards = self.get_topic(topic_name)
+        shard_count = len(shards)
+        while True:
+            try:
+                # 数据太多，处理不完
+                qsize = self.queue_task_spread.qsize()
+                if qsize >= 5000:
+                    logger.info(self.to_string() + "run_calc_spread() qsize={0}".format(qsize))
+                    '''
+                    for i in range(10000):
+                        self.queue_task_spread.get()
+                        self.queue_task_spread.task_done()
+                    continue
+                    '''
+                # [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
+                task_record = await self.queue_task_spread.get()
+                symbol = task_record[1]
+                ex1 = task_record[0]
+                ex1_bid = task_record[3]
+                ex1_ask = task_record[5]
+                ex1_ts = task_record[2]
+                record2s = self.symbol_ex_ticker[symbol] if self.symbol_ex_ticker.get(symbol) is not None else {}
+                records = []
+                for ex2, v in record2s.items():
+                    if ex2 == ex1:
+                        continue
+                    ex2_bid = v["f_bid"]
+                    ex2_ask = v["f_ask"]
+                    ex2_ts = v["f_ts"]
+                    if abs(ex1_ts - ex2_ts) > 10000:
+                        logger.info(self.to_string() + "run_calc_spread() abs(ex1_ts - ex2_ts)={0}".format(abs(ex1_ts - ex2_ts)))
+                        continue
+                    spread_ts = ex1_ts if ex1_ts > ex2_ts else ex2_ts
+
+                    record1 = TupleRecord(schema=topic.record_schema)
+                    record1.values = [symbol, ex1, ex2, spread_ts, ex1_bid-ex2_ask]
+                    i = random.randint(1,100) % shard_count
+                    record1.shard_id = shards[i].shard_id
+                    records.append(record1)
+
+                    record2 = TupleRecord(schema=topic.record_schema)
+                    record2.values = [symbol, ex2, ex1, spread_ts, ex2_bid-ex1_ask]
+                    i = random.randint(1,100) % shard_count
+                    record2.shard_id = shards[i].shard_id
+                    records.append(record2)
+                self.pub_topic(topic_name, records)
+            except DatahubException as e:
+                logger.error(traceback.format_exc(e))
+            except Exception as e:
+                logger.error(traceback.format_exc(e))
+            except:
+                logger.error(traceback.format_exc())
+
+    '''
+    def execute_calc_spread(self, topic_name="t_spread"):
+        all_task = []
+        for i in range(self.executor_max_works):
+            future = self.executor.submit(self.run_calc_spread, topic_name)
+            all_task.append(future)
+        wait(all_task, return_when=ALL_COMPLETED)
+    '''
+
+
 
 
 

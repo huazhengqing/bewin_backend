@@ -30,6 +30,8 @@ wget https://www.python.org/ftp/python/3.6.6/Python-3.6.6.tar.xz
 ```shell
 pip install --upgrade ccxt
 pip install --upgrade cfscrape
+pip install --upgrade numpy
+pip install futures
 ```
 
 ## aliyun 大数据总线(DataHub) 
@@ -83,8 +85,6 @@ pip install --upgrade nose
 - [console](https://www.aliyun.com/product/rds/mysql)
 - [文档](https://help.aliyun.com/document_detail/26125.html)
 - [MySQL 5.1 参考手册](http://www.matools.com/manual/1300)
-
-DataHub 对接 mysql 时，mysql 只能使用经典网络。VPC 提示错误。
 
 ```shell
 pip install --upgrade aliyun-python-sdk-rds
@@ -146,7 +146,9 @@ fun -h
 - [Linux下配置DataV Proxy](https://help.aliyun.com/document_detail/64141.html)
 - [DataVProxy](https://github.com/ericdum/DataVProxy)
 - [开发工具](https://help.aliyun.com/document_detail/70446.html)
-- [项目发布地址](https://datav.aliyun.com/share/7527c68399bdc18db99738a87d8693d9)
+- [项目发布地址:开发环境](https://datav.aliyun.com/share/7527c68399bdc18db99738a87d8693d9)
+- [项目发布地址:生产环境](https://datav.aliyun.com/share/6f4b9a3b93a7b1beb5e049c5c6ce3afd)
+
 
 mysql 白名单: datav
 

@@ -20,15 +20,15 @@ class db_mysql():
     def __init__(self):
         dev_or_product = conf.conf_aliyun.dev_or_product
         if dev_or_product == 1:
-            host = conf.conf_aliyun.conf_aliyun_mysql['db_host_dev']
-            port = conf.conf_aliyun.conf_aliyun_mysql['db_port_dev']
-            user = conf.conf_aliyun.conf_aliyun_mysql['user_dev']
-            password = conf.conf_aliyun.conf_aliyun_mysql['password_dev']
+            host = conf.conf_aliyun.conf_aliyun_mysql['dev_db_host']
+            port = conf.conf_aliyun.conf_aliyun_mysql['dev_db_port']
+            user = conf.conf_aliyun.conf_aliyun_mysql['dev_user']
+            password = conf.conf_aliyun.conf_aliyun_mysql['dev_password']
         elif dev_or_product == 2:
-            host = conf.conf_aliyun.conf_aliyun_mysql['db_host_product']
-            port = conf.conf_aliyun.conf_aliyun_mysql['db_port_product']
-            user = conf.conf_aliyun.conf_aliyun_mysql['user_product']
-            password = conf.conf_aliyun.conf_aliyun_mysql['password_product']
+            host = conf.conf_aliyun.conf_aliyun_mysql['product_db_host']
+            port = conf.conf_aliyun.conf_aliyun_mysql['product_db_port']
+            user = conf.conf_aliyun.conf_aliyun_mysql['product_user']
+            password = conf.conf_aliyun.conf_aliyun_mysql['product_password']
         self.db_host = host
         self.db_port = int(port)
         self.user = user
