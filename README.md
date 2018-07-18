@@ -32,6 +32,8 @@ pip install --upgrade ccxt
 pip install --upgrade cfscrape
 pip install --upgrade numpy
 pip install futures
+pip install arrow
+
 ```
 
 ## aliyun 大数据总线(DataHub) 
