@@ -80,12 +80,12 @@ class analyze(object):
             'volume': 'max',
         })
         frame.drop(frame.tail(1).index, inplace=True)     # eliminate partial candle
-        #logger.debug("parse_ohlcv_dataframe() end  frame={0} ".format(frame))
+        logger.debug("parse_ohlcv_dataframe() end  len(frame)={0} ".format(len(frame)))
         return frame
 
     def calc_signal(self, ohlcv : List[Dict]) -> Tuple[bool, bool, bool]:
         self.ohlcv_list.extend(ohlcv)
-        if self.ohlcv_list is None or len(self.ohlcv_list) <= 10:
+        if self.ohlcv_list is None or len(self.ohlcv_list) <= 100:
             return (False, False, False)
         try:
             self.dataframe = self.parse_ohlcv_dataframe(self.ohlcv_list)
@@ -176,7 +176,7 @@ class analyze(object):
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_bid', 'f_ask', 'f_spread', 'f_bar_trend', 'f_volume_mean', 'f_volume', 'f_ma_period', 'f_ma_up', 'f_ma_low', 'f_ma_trend', 'f_channel_period', 'f_channel_up', 'f_channel_low', 'f_breakout_trend', 'f_breakout_ts', 'f_breakout_price', 'f_breakout_volume', 'f_breakout_volume_rate', 'f_breakout_price_highest', 'f_breakout_price_highest_ts', 'f_breakout_rate', 'f_breakout_rate_max', 'f_ts_update']
     '''
     def pub_topic(self, t_symbols_analyze):
-        logger.debug(self.to_string() + "pub_topic() t_symbols_analyze={0}".format(t_symbols_analyze))
+        #logger.debug(self.to_string() + "pub_topic() t_symbols_analyze={0}".format(t_symbols_analyze))
         if self.datahub is None:
             return
         topic_name = "t_symbols_analyze"
@@ -208,7 +208,7 @@ class analyze(object):
             t_symbols_analyze.f_breakout_price_highest_ts,
             t_symbols_analyze.f_breakout_rate,
             t_symbols_analyze.f_breakout_rate_max,
-            t_symbols_analyze.f_ts_update
+            arrow.utcnow().timestamp * 1000
         ]
         record.shard_id = shards[randint(1, 1000) % len(shards)].shard_id
         self.datahub.pub_topic(topic_name, [record])

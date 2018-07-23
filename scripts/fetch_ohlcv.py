@@ -20,6 +20,7 @@ logger = util.get_log(__name__)
 ids = conf.dev_ex_ids
 ids = [
     'okex',
+    'hubipro',
 ]
 
 if conf.dev_or_product == 2:
