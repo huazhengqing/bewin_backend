@@ -25,6 +25,7 @@ wget https://www.python.org/ftp/python/3.6.6/Python-3.6.6.tar.xz
 
 - [ccxt](https://github.com/ccxt/ccxt)
 - [talib安装](http://blog.chinaunix.net/uid-21519621-id-5757088.html)
+- [talib windows 64位安装](https://blog.csdn.net/xiongjx3/article/details/80274678)
 
 ```shell
 pip install --upgrade ccxt
