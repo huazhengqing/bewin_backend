@@ -5,7 +5,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>{bcad2b3d-1c23-47a2-ab01-883543a266f6}</ProjectGuid>
     <ProjectHome>..\</ProjectHome>
-    <StartupFile />
+    <StartupFile>scripts\run_strategy_bot.py</StartupFile>
     <SearchPath />
     <WorkingDirectory>.</WorkingDirectory>
     <OutputPath>.</OutputPath>
