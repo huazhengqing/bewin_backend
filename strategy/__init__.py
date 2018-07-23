@@ -6,9 +6,9 @@ import inspect
 from copy import deepcopy
 from collections import OrderedDict
 from typing import Dict, Optional, Type
-from strategy_interface import IStrategy
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+from strategy.strategy_interface import IStrategy
 import conf
 import util
 import db

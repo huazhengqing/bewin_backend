@@ -10,7 +10,6 @@ import logging
 import asyncio
 import datetime
 import traceback
-import multiprocessing
 import sqlalchemy as sql
 import ccxt.async as ccxt
 from random import randint
@@ -19,15 +18,17 @@ dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import conf
 import util
+from util import retry
 import db
 logger = util.get_log(__name__)
 
 
 
 class exchange(object):
-    def __init__(self, ex_id, userid = 1):
+    def __init__(self, ex_id, userid = 0):
         self.ex_id = ex_id
         self.userid = userid
+
         if ex_id in ccxt.exchanges:
             self.ex = getattr(ccxt, ex_id)({
                 'enableRateLimit': True,
@@ -36,19 +37,10 @@ class exchange(object):
             })
         else:
             raise Exception(self.to_string() + "ex_id error")
+
         if conf.dev_or_product == 1:
             self.ex.aiohttp_proxy = "http://127.0.0.1:1080"
-        t_user_exchange_info = db.t_user_exchange.query.filter(
-            sql.and_(
-                db.t_user_exchange.f_userid == self.userid,
-                db.t_user_exchange.f_ex_id == self.ex_id
-            )
-        ).first()
-        if (t_user_exchange_info is not None):
-            if conf.dev_or_product == 1:
-                self.ex.aiohttp_proxy = t_user_exchange_info.f_aiohttp_proxy
-                logger.debug(self.to_string() + "aiohttp_proxy={0}".format(self.ex.aiohttp_proxy))
-
+        
         '''
         self.ex.markets['ETH/BTC']['limits']['amount']['min']   # 最小交易量 0.000001
         self.ex.markets['ETH/BTC']['limits']['price']['min']    # 最小价格 0.000001
@@ -59,14 +51,6 @@ class exchange(object):
         # 手续费 百分比
         self.fee_taker = 0.001
 
-
-        '''
-        self.balance['BTC']['free']     # 还有多少钱
-        self.balance['BTC']['used']
-        self.balance['BTC']['total']
-        '''
-        self.balance = None
-        
         '''
         {
             'symbol': symbol,
@@ -113,13 +97,6 @@ class exchange(object):
         self.base_cur = ''
         self.quote_cur = ''
 
-
-    '''
-    async def __del__(self):
-        if not self.ex is None:
-            await self.ex.close()
-    '''
-
     def to_string(self):
         return "exchange[{0},{1}] ".format(self.ex_id, self.userid)
     
@@ -128,9 +105,28 @@ class exchange(object):
             await self.ex.close()
 
     def set_symbol(self, symbol):
-        self.symbol_cur = symbol         # BTC/USD
-        self.base_cur = symbol.split('/')[0]       # BTC
-        self.quote_cur = symbol.split('/')[1]       # USD
+        self.symbol_cur = symbol
+        self.base_cur, self.quote_cur = symbol.split('/')
+        
+
+    def get_symbol_detail_url(self, symbol: str) -> str:
+        try:
+            url_base = self.ex.urls.get('www')
+            base, quote = symbol.split('/')
+            return url_base + util._EXCHANGE_URLS[self.ex.id].format(base=base, quote=quote)
+        except:
+            logger.warning(self.to_string() + 'get_symbol_detail_url({0}) no url'.format(symbol))
+            return ""
+        return ""
+
+
+    def has_api(self, api_name: str) -> bool:
+        return api_name in self.ex.has and self.ex.has[api_name]
+
+    def is_support_timeframes(self, timeframe_str: str) -> None:
+        return timeframe_str in self.ex.timeframes
+        
+
 
     '''
     self.ex.markets['ETH/BTC']['limits']['amount']['min']   # 最小交易量 0.000001
@@ -140,8 +136,9 @@ class exchange(object):
     '''
     async def load_markets(self):
         #logger.debug(self.to_string() + "load_markets() start")
-        if self.ex.markets is None:
+        if self.ex.markets is None or len(self.ex.markets) <= 0:
             await self.ex.load_markets()
+            #await self.ex.fetch_markets()
             #logger.debug(self.to_string() + "load_markets() markets={0}".format(self.ex.markets))
             #logger.debug(self.to_string() + "load_markets() symbols={0}".format(self.ex.symbols))
             #logger.debug(self.to_string() + "load_markets() fees={0}".format(self.ex.fees))
@@ -149,29 +146,14 @@ class exchange(object):
             #logger.debug(self.to_string() + "load_markets() has={0}".format(self.ex.has))
             #logger.debug(self.to_string() + "load_markets() urls={0}".format(self.ex.urls))
             #logger.debug(self.to_string() + "load_markets() currencies={0}".format(self.ex.currencies))
+            self.fee_taker = self.ex.fees['trading']['taker'] if self.ex.fees['trading'].get('taker') is not None else 0
+            logger.debug(self.to_string() + "load_markets() fee_taker={0}".format(self.fee_taker))
         #logger.debug(self.to_string() + "load_markets() end ")
         return self.ex.markets
 
     def check_symbol(self, symbol):
         if symbol not in self.ex.symbols:
             raise Exception(self.to_string() + "check_symbol({0}) error".format(symbol))
-
-    '''
-    self.balance['BTC']['free']     # 还有多少钱
-    self.balance['BTC']['used']
-    self.balance['BTC']['total']
-    '''
-    async def fetch_balances(self):
-        #logger.debug(self.to_string() + "fetch_balances() start")
-        p = {}
-        if self.ex.id == 'binance':
-            p = {
-                'recvWindow' : 60000,
-            }
-        self.balance = await self.ex.fetch_balances(p)
-        #logger.debug(self.to_string() + "fetch_balances() end balance={0}".format(self.balance))
-        #logger.debug(self.to_string() + "fetch_balances() end")
-        return self.balance
 
     '''
     {
@@ -201,7 +183,7 @@ class exchange(object):
         #logger.debug(self.to_string() + "fetch_ticker({0}) start".format(symbol))
         self.set_symbol(symbol)
         self.ticker = await self.ex.fetch_ticker(symbol)
-        self.ticker_time = int(time.time())
+        self.ticker_time = arrow.utcnow().timestamp * 1000
         #logger.debug(self.to_string() + "fetch_ticker({0}) end ticker={1}".format(symbol, self.ticker))
         return self.ticker
 
@@ -216,7 +198,7 @@ class exchange(object):
         if symbol == '':
             return
         self.order_book[symbol] = await self.ex.fetch_order_book(symbol, i)
-        self.order_book_time = int(time.time())
+        self.order_book_time = arrow.utcnow().timestamp * 1000
         self.buy_1_price = self.order_book[symbol]['bids'][0][0]
         self.buy_1_quantity = self.order_book[symbol]['bids'][0][1]
         self.sell_1_price = self.order_book[symbol]['asks'][0][0]
@@ -255,11 +237,8 @@ class exchange(object):
             data.extend(data_part)
             since_ms = data[-1][0] + 1
 
-        logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) end  len(data)={3}".format(symbol, period, since_ms, len(data)))
+        logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) end  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
         return data
-        
-        
-
 
     # 异常处理
     async def run(self, func, *args, **kwargs):
@@ -285,33 +264,33 @@ class exchange(object):
             except ccxt.RequestTimeout:
                 err_timeout = err_timeout + 1
                 logger.info(traceback.format_exc())
-                time.sleep(30)
+                await asyncio.sleep(30)
             except ccxt.DDoSProtection:
                 err_ddos = err_ddos + 1
                 logger.error(traceback.format_exc())
-                time.sleep(15)
+                await asyncio.sleep(15)
             except ccxt.AuthenticationError:
                 err_auth = err_auth + 1
                 logger.error(traceback.format_exc())
-                time.sleep(5)
+                await asyncio.sleep(5)
                 if err_auth > 5:
                     break
             except ccxt.ExchangeNotAvailable:
                 err_not_available = err_not_available + 1
                 logger.error(traceback.format_exc())
-                time.sleep(30)
+                await asyncio.sleep(30)
                 if err_not_available > 5:
                     break
             except ccxt.ExchangeError:
                 err_exchange = err_exchange + 1
                 logger.error(traceback.format_exc())
-                time.sleep(5)
+                await asyncio.sleep(5)
                 if err_exchange > 5:
                     break
             except ccxt.NetworkError:
                 err_network = err_network + 1
                 logger.error(traceback.format_exc())
-                time.sleep(5)
+                await asyncio.sleep(5)
                 if err_network > 5:
                     break
             except Exception:

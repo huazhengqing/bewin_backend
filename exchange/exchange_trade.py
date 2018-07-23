@@ -18,153 +18,49 @@ dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import conf
 import util
+from util import retry
 import db
+from exchange.exchange import exchange
 logger = util.get_log(__name__)
 
 
-class exchange_trade(object):
-    def __init__(self, ex_id, userid = 1):
-        self.ex_id = ex_id
-        self.userid = userid
-        if ex_id in ccxt.exchanges:
-            self.ex = getattr(ccxt, ex_id)({
-                'enableRateLimit': True,
-                #'verbose': True,
-                #'session': cfscrape.create_scraper(),
-            })
-        else:
-            raise Exception(self.to_string() + "ex_id error")
-        t_user_exchange_info = db.t_user_exchange.query.filter(
-            sql.and_(
-                db.t_user_exchange.f_userid == self.userid,
-                db.t_user_exchange.f_ex_id == self.ex_id
-            )
-        ).first()
-        if (t_user_exchange_info is not None):
-            self.ex.apiKey = t_user_exchange_info.f_apikey
-            self.ex.secret = t_user_exchange_info.f_secret
-            self.ex.password = t_user_exchange_info.f_password
-            self.ex.uid = t_user_exchange_info.f_uid
-            if conf.dev_or_product == 1:
-                self.ex.aiohttp_proxy = t_user_exchange_info.f_aiohttp_proxy
+class exchange_trade(exchange):
+    def __init__(self, t_user_exchange_info):
+        super(exchange_trade, self).__init__(t_user_exchange_info.f_ex_id, t_user_exchange_info.f_userid)
+
+        self.ex.apiKey = t_user_exchange_info.f_apikey
+        self.ex.secret = t_user_exchange_info.f_secret
+        self.ex.password = t_user_exchange_info.f_password
+        self.ex.uid = t_user_exchange_info.f_uid
+
+        if conf.dev_or_product == 2:
+            self.ex.aiohttp_proxy = t_user_exchange_info.f_aiohttp_proxy        
             #self.ex.proxy = t_user_exchange_info.f_proxy
             #self.ex.proxies = t_user_exchange_info.f_proxies
-        '''
-        url = self.ex.urls['www']
-        tokens, user_agent = cfscrape.get_tokens(url)
-        self.ex.headers = {
-            'cookie': '; '.join([key + '=' + tokens[key] for key in tokens]),
-            'user-agent': user_agent,
-        }
-        '''
+            logger.debug(self.to_string() + "aiohttp_proxy={0}".format(self.ex.aiohttp_proxy))
 
+            '''
+            url = self.ex.urls['www']
+            tokens, user_agent = cfscrape.get_tokens(url)
+            self.ex.headers = {
+                'cookie': '; '.join([key + '=' + tokens[key] for key in tokens]),
+                'user-agent': user_agent,
+            }
+            '''
         '''
         self.balance['BTC']['free']     # 还有多少钱
         self.balance['BTC']['used']
         self.balance['BTC']['total']
         '''
         self.balance = None
-        
-        '''
-        {
-            'symbol': symbol,
-            'timestamp': timestamp,
-            'datetime': iso8601,
-            'high': self.safe_float(ticker, 'highPrice'),
-            'low': self.safe_float(ticker, 'lowPrice'),
-            'bid': self.safe_float(ticker, 'bidPrice'),
-            'bidVolume': self.safe_float(ticker, 'bidQty'),
-            'ask': self.safe_float(ticker, 'askPrice'),
-            'askVolume': self.safe_float(ticker, 'askQty'),
-            'vwap': self.safe_float(ticker, 'weightedAvgPrice'),
-            'open': self.safe_float(ticker, 'openPrice'),
-            'close': self.safe_float(ticker, 'prevClosePrice'),
-            'first': None,
-            'last': self.safe_float(ticker, 'lastPrice'),
-            'change': self.safe_float(ticker, 'priceChange'),
-            'percentage': self.safe_float(ticker, 'priceChangePercent'),
-            'average': None,
-            'baseVolume': self.safe_float(ticker, 'volume'),
-            'quoteVolume': self.safe_float(ticker, 'quoteVolume'),
-            'info': ticker,
-        }
-        '''
-        self.ticker = None
-        self.ticker_time = 0
-
-        '''
-        self.order_book[symbol]['bids'][0][0]    # buy_1_price
-        self.order_book[symbol]['bids'][0][1]    # buy_1_quantity
-        self.order_book[symbol]['asks'][0][0]    # sell_1_price
-        self.order_book[symbol]['asks'][0][1]    # sell_1_quantity
-        '''
-        self.order_book = dict()
-        self.order_book_time = 0
-        self.buy_1_price = 0.0
-        self.buy_1_quantity = 0.0
-        self.sell_1_price = 0.0
-        self.sell_1_quantity = 0.0
-        self.slippage_value = 0.0
-        self.slippage_ratio  = 0.0
-
-        self.symbol_cur = ''
-        self.base_cur = ''
-        self.quote_cur = ''
 
         # 仓位再平衡
         self.rebalance_position_proportion = 0.5
         self.rebalance_time = 0
-        
-        
-    '''
-    async def __del__(self):
-        if not self.ex is None:
-            await self.ex.close()
-    '''
 
     def to_string(self):
-        return "exchange[{0}] ".format(self.ex.id)
-    
-    async def close(self):
-        if not self.ex is None:
-            await self.ex.close()
+        return "exchange_trade[{0},{1}] ".format(self.ex_id, self.userid)
 
-    def set_symbol(self, symbol):
-        self.symbol_cur = symbol         # BTC/USD
-        self.base_cur = symbol.split('/')[0]       # BTC
-        self.quote_cur = symbol.split('/')[1]       # USD
-
-    '''
-    self.ex.markets['ETH/BTC']['limits']['amount']['min']   # 最小交易量 0.000001
-    self.ex.markets['ETH/BTC']['limits']['price']['min']    # 最小价格 0.000001
-    self.ex.markets['ETH/BTC']['precision']['amount']   # 精度 8
-    self.ex.markets['ETH/BTC']['precision']['price']    # 精度 2
-    '''
-    async def load_markets(self):
-        #logger.debug(self.to_string() + "load_markets() start")
-        if self.ex.markets is None:
-            await self.ex.load_markets()
-            #logger.debug(self.to_string() + "load_markets() markets={0}".format(self.ex.markets))
-            #logger.debug(self.to_string() + "load_markets() symbols={0}".format(self.ex.symbols))
-            #logger.debug(self.to_string() + "load_markets() fees={0}".format(self.ex.fees))
-            #logger.debug(self.to_string() + "load_markets() api={0}".format(self.ex.api))
-            #logger.debug(self.to_string() + "load_markets() has={0}".format(self.ex.has))
-            #logger.debug(self.to_string() + "load_markets() urls={0}".format(self.ex.urls))
-            #logger.debug(self.to_string() + "load_markets() currencies={0}".format(self.ex.currencies))
-            self.fee_taker = self.ex.fees['trading']['taker'] if self.ex.fees['trading'].get('taker') is not None else 0
-            logger.debug(self.to_string() + "load_markets() fee_taker={0}".format(self.fee_taker))
-        #logger.debug(self.to_string() + "load_markets() end ")
-        return self.ex.markets
-
-    def check_symbol(self, symbol):
-        if symbol not in self.ex.symbols:
-            raise Exception(self.to_string() + "check_symbol({0}) error".format(symbol))
-
-    '''
-    self.balance['BTC']['free']     # 还有多少钱
-    self.balance['BTC']['used']
-    self.balance['BTC']['total']
-    '''
     async def fetch_balances(self):
         #logger.debug(self.to_string() + "fetch_balances() start")
         p = {}
@@ -172,96 +68,119 @@ class exchange_trade(object):
             p = {
                 'recvWindow' : 60000,
             }
-        self.balance = await self.ex.fetch_balances(p)
+        self.balances = await self.ex.fetch_balances(p)
+        self.balances.pop("info", None)
+        self.balances.pop("free", None)
+        self.balances.pop("total", None)
+        self.balances.pop("used", None)
         #logger.debug(self.to_string() + "fetch_balances() end balance={0}".format(self.balance))
         #logger.debug(self.to_string() + "fetch_balances() end")
-        return self.balance
+        return self.balances
 
-    '''
-    {
-        'symbol': symbol,
-        'timestamp': timestamp,
-        'datetime': iso8601,
-        'high': self.safe_float(ticker, 'highPrice'),
-        'low': self.safe_float(ticker, 'lowPrice'),
-        'bid': self.safe_float(ticker, 'bidPrice'),
-        'bidVolume': self.safe_float(ticker, 'bidQty'),
-        'ask': self.safe_float(ticker, 'askPrice'),
-        'askVolume': self.safe_float(ticker, 'askQty'),
-        'vwap': self.safe_float(ticker, 'weightedAvgPrice'),
-        'open': self.safe_float(ticker, 'openPrice'),
-        'close': self.safe_float(ticker, 'prevClosePrice'),
-        'first': None,
-        'last': self.safe_float(ticker, 'lastPrice'),
-        'change': self.safe_float(ticker, 'priceChange'),
-        'percentage': self.safe_float(ticker, 'priceChangePercent'),
-        'average': None,
-        'baseVolume': self.safe_float(ticker, 'volume'),
-        'quoteVolume': self.safe_float(ticker, 'quoteVolume'),
-        'info': ticker,
-    }
-    '''
-    async def fetch_ticker(self, symbol):
-        #logger.debug(self.to_string() + "fetch_ticker({0}) start".format(symbol))
-        self.set_symbol(symbol)
-        self.ticker = await self.ex.fetch_ticker(symbol)
-        self.ticker_time = int(time.time())
-        #logger.debug(self.to_string() + "fetch_ticker({0}) end ticker={1}".format(symbol, self.ticker))
-        return self.ticker
+    def get_balance(self, currency: str) -> float:
+        balances = self.fetch_balances()
+        balance = balances.get(currency)
+        if balance is None:
+            raise Exception(self.to_string() + "get_balance({0}) error ".format(currency))
+        return balance['free']
 
-    '''
-    self.order_book[symbol]['bids'][0][0]    # buy_1_price
-    self.order_book[symbol]['bids'][0][1]    # buy_1_quantity
-    self.order_book[symbol]['asks'][0][0]    # sell_1_price
-    self.order_book[symbol]['asks'][0][1]    # sell_1_quantity
-    '''
-    async def fetch_order_book(self, symbol, i = 5):
-        #logger.debug(self.to_string() + "fetch_order_book({0}) start".format(symbol))
-        if symbol == '':
-            return
-        self.order_book[symbol] = await self.ex.fetch_order_book(symbol, i)
-        self.order_book_time = int(time.time())
-        self.buy_1_price = self.order_book[symbol]['bids'][0][0]
-        self.buy_1_quantity = self.order_book[symbol]['bids'][0][1]
-        self.sell_1_price = self.order_book[symbol]['asks'][0][0]
-        self.sell_1_quantity = self.order_book[symbol]['asks'][0][1]
-        self.slippage_value = self.sell_1_price - self.buy_1_price
-        self.slippage_ratio = (self.sell_1_price - self.buy_1_price) / self.buy_1_price
-        self.set_symbol(symbol)
-        #logger.debug(self.to_string() + "fetch_order_book({0}) end order_book[{1}]={2}".format(symbol, symbol, self.order_book[symbol]))
-        return self.order_book
 
-    async def fetch_ohlcv(self, symbol, timeframe, since_ms = None):
-        #logger.debug(self.to_string() + "fetch_ohlcv({0}, {1}, {2}) start".format(symbol, period, since_ms))
-        if timeframe not in self.ex.timeframes:
+
+
+
+
+
+
+
+
+
+
+    async def fetch_my_trades_for_order(self, order_id: str, symbol: str, since: datetime) -> List:
+        if not self.has_api('fetchMyTrades'):
             return []
+        my_trades = await self.ex.fetch_my_trades(symbol, since.timestamp())
+        matched_trades = [trade for trade in my_trades if trade['order'] == order_id]
+        return matched_trades
 
-        # last item should be in the time interval [now - tick_interval, now]
-        till_time_ms = arrow.utcnow().shift(minutes=-1).timestamp * 1000
-        # it looks as if some exchanges return cached data
-        # and they update it one in several minute, so 10 mins interval
-        # is necessary to skeep downloading of an empty array when all
-        # chached data was already downloaded
-        till_time_ms = min(till_time_ms, arrow.utcnow().shift(minutes=-10).timestamp * 1000)
+    '''
+    async def get_real_amount(self, t_trade: db.t_trades, order: Dict) -> float:
+        order_amount = order['amount']
 
-        data = []
-        while not since_ms or since_ms < till_time_ms:
-            data_part = await self.ex.fetch_ohlcv(symbol, timeframe=timeframe, since=since_ms)
+        # Only run for closed orders
+        if t_trade.f_fee_open == 0 or order['status'] == 'open':
+            return order_amount
 
-            # Because some exchange sort Tickers ASC and other DESC.
-            # Ex: Bittrex returns a list of tickers ASC (oldest first, newest last)
-            # when GDAX returns a list of tickers DESC (newest first, oldest last)
-            data_part = sorted(data_part, key=lambda x: x[0])
+        # use fee from order-dict if possible
+        if 'fee' in order and order['fee'] and (order['fee'].keys() >= {'currency', 'cost'}):
+            if t_trade.f_symbol.startswith(order['fee']['currency']):
+                new_amount = order_amount - order['fee']['cost']
+                return new_amount
 
-            if not data_part:
-                break
-
-            data.extend(data_part)
-            since_ms = data[-1][0] + 1
-
-        #logger.debug(self.to_string() + "fetch_ohlcv({0}, {1}, {2}) end  data={3}".format(symbol, period, since_ms, data))
-        return data
+        # Fallback to Trades
+        trades = await self.fetch_my_trades_for_order(t_trade.f_open_order_id, t_trade.f_symbol, t_trade.f_open_date)
+        if len(trades) == 0:
+            return order_amount
         
+        amount = 0
+        fee_abs = 0
+        for exectrade in trades:
+            amount += exectrade['amount']
+            if "fee" in exectrade and (exectrade['fee'].keys() >= {'currency', 'cost'}):
+                # only applies if fee is in quote currency!
+                if t_trade.f_symbol.startswith(exectrade['fee']['currency']):
+                    fee_abs += exectrade['fee']['cost']
+
+        if amount != order_amount:
+            logger.warning(self.to_string() + f"amount {amount} does not match amount {t_trade.f_amount}")
+            raise Exception("Half bought? Amounts don't match")
+
+        real_amount = amount - fee_abs
+        if fee_abs != 0:
+            logger.info(f"""Applying fee on amount for {t_trade} (from {order_amount} to {real_amount}) from t_trade""")
+
+        return real_amount
+    '''
+    def get_limits_amount_min_price(self, symbol: str, price: float) -> Optional[float]:
+        #await self.load_markets()
+        self.check_symbol(symbol)
+
+        market = self.ex.markets[symbol]
+        if 'limits' not in market:
+            return None
+
+        min_amounts = []
+        limits = market['limits']
+        if ('cost' in limits and 'min' in limits['cost'] and limits['cost']['min'] is not None):
+            min_amounts.append(limits['cost']['min'])
+
+        if ('amount' in limits and 'min' in limits['amount'] and limits['amount']['min'] is not None):
+            min_amounts.append(limits['amount']['min'] * price)
+
+        if not min_amounts:
+            return None
+
+        return max(min_amounts) * 2
+
+    def calculate_fee(self, symbol='ETH/BTC', type='', side='', amount=1, price=1, taker_or_maker='maker') -> float:
+        #await self.load_markets()
+        self.check_symbol(symbol)
+        return self.ex.calculate_fee(
+            symbol=symbol, 
+            type=type, 
+            side=side, 
+            amount=amount, 
+            price=price, 
+            takerOrMaker=taker_or_maker
+            )['rate']
+
+    async def amount_to_lots(self, symbol: str, amount: float) -> float:
+        await self.load_markets()
+        self.check_symbol(symbol)
+        return self.ex.amount_to_lots(symbol, amount)
+
+
+
+
     '''
     # 订单结构
     {
@@ -304,11 +223,24 @@ class exchange_trade(object):
     }
     '''
 
-    async def buy(self, pair: str, rate: float, amount: float) -> Dict:
-        return await self.ex.create_limit_buy_order(pair, amount, rate)
 
-    async def sell(self, pair: str, rate: float, amount: float) -> Dict:
-        return await self.ex.create_limit_sell_order(pair, amount, rate)
+    async def create_order(self, symbol, type, side, amount, price=None, params={}):
+        return await self.ex.create_order(symbol, type, side, amount, price, params)
+
+    async def fetch_order(self, id, symbol=None, params={}) -> Dict:
+        return await self.ex.fetch_order(id, symbol, params)
+
+    async def cancel_order(self, id, symbol=None, params={}) -> None:
+        return await self.ex.cancel_order(id, symbol, params)
+
+
+    async def buy(self, symbol: str, rate: float, amount: float) -> Dict:
+        return await self.ex.create_limit_buy_order(symbol, amount, rate)
+
+    async def sell(self, symbol: str, rate: float, amount: float) -> Dict:
+        return await self.ex.create_limit_sell_order(symbol, amount, rate)
+
+
 
     # 限价买卖
     async def buy_cancel(self, symbol, amount):
@@ -447,10 +379,10 @@ class exchange_trade(object):
         if self.rebalance_position_proportion <= 0.0:
             #logger.debug(self.to_string() + "rebalance_position({0}) return rebalance_position_proportion <= 0.0".format(symbol))
             return
-        if int(time.time()) < self.rebalance_time + 60:
+        if arrow.utcnow().timestamp < self.rebalance_time + 60:
             #logger.debug(self.to_string() + "rebalance_position({0}) return  time  ".format(symbol))
             return
-        self.rebalance_time = int(time.time())
+        self.rebalance_time = arrow.utcnow().timestamp
         logger.debug(self.to_string() + "rebalance_position({0}) start".format(symbol))
         await self.load_markets()
         await self.fetch_balances()
@@ -467,7 +399,7 @@ class exchange_trade(object):
             sell_amount = (pos_value - target_pos_value) / self.ticker['bid']
             logger.debug(self.to_string() + "rebalance_position({0}) sell_all({1}) ".format(symbol, sell_amount))
             await self.sell_all(symbol, sell_amount)
-        self.rebalance_time = int(time.time())
+        self.rebalance_time = arrow.utcnow().timestamp
         logger.debug(self.to_string() + "rebalance_position({0}) end".format(symbol))
 
     # 评估账户 最小下注量
@@ -484,69 +416,6 @@ class exchange_trade(object):
         logger.debug(self.to_string() + "balance_amount_min({0}) end ret={1}".format(symbol, ret))
         return ret
 
-    # 异常处理
-    async def run(self, func, *args, **kwargs):
-        logger.info(self.to_string() + "run() start")
-        err_timeout = 0
-        err_ddos = 0
-        err_auth = 0
-        err_not_available = 0
-        err_exchange = 0
-        err_network = 0
-        err = 0
-        while True:
-            try:
-                logger.info(self.to_string() + "run() func")
-                await func(*args, **kwargs)
-                err_timeout = 0
-                err_ddos = 0
-                err_auth = 0
-                err_not_available = 0
-                err_exchange = 0
-                err_network = 0
-                err = 0
-            except ccxt.RequestTimeout:
-                err_timeout = err_timeout + 1
-                logger.info(traceback.format_exc())
-                time.sleep(30)
-            except ccxt.DDoSProtection:
-                err_ddos = err_ddos + 1
-                logger.error(traceback.format_exc())
-                time.sleep(15)
-            except ccxt.AuthenticationError:
-                err_auth = err_auth + 1
-                logger.error(traceback.format_exc())
-                time.sleep(5)
-                if err_auth > 5:
-                    break
-            except ccxt.ExchangeNotAvailable:
-                err_not_available = err_not_available + 1
-                logger.error(traceback.format_exc())
-                time.sleep(30)
-                if err_not_available > 5:
-                    break
-            except ccxt.ExchangeError:
-                err_exchange = err_exchange + 1
-                logger.error(traceback.format_exc())
-                time.sleep(5)
-                if err_exchange > 5:
-                    break
-            except ccxt.NetworkError:
-                err_network = err_network + 1
-                logger.error(traceback.format_exc())
-                time.sleep(5)
-                if err_network > 5:
-                    break
-            except Exception:
-                err = err + 1
-                logger.info(traceback.format_exc())
-                break
-            except:
-                logger.error(traceback.format_exc())
-                break
-        if not self.ex is None:
-            await self.ex.close()
-        logger.info(self.to_string() + "run() end")
 
     # 3角套利，查找可以套利的币
     async def triangle_find_best_profit(self, quote1 = "BTC", quote2 = "ETH"):

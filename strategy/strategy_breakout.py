@@ -3,11 +3,11 @@ import os
 import sys
 import talib.abstract as ta
 from pandas import DataFrame
-from indicator_helpers import fishers_inverse
-from strategy_interface import IStrategy
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import vendor.qtpylib.indicators as qtpylib
+from strategy.indicator_helpers import fishers_inverse
+from strategy.strategy_interface import IStrategy
 import conf.conf_aliyun
 import conf
 import util
@@ -18,6 +18,7 @@ logger = util.get_log(__name__)
 
 class strategy_breakout(IStrategy):
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
+        #logger.debug("strategy_breakout()  ")
         dataframe['min'] = ta.MIN(dataframe, timeperiod=self._channel_period)
         dataframe['max'] = ta.MAX(dataframe, timeperiod=self._channel_period)
 
@@ -33,12 +34,33 @@ class strategy_breakout(IStrategy):
 
         dataframe['atr'] = qtpylib.atr(dataframe)
 
+        #logger.debug("strategy_breakout() end  dataframe={0} ".format(dataframe))
         return dataframe
 
-    def buy(self, dataframe: DataFrame) -> DataFrame:
-        dataframe.loc[False, 'buy'] = 1
+    def long(self, dataframe: DataFrame) -> DataFrame:
+        dataframe.loc[
+            (
+                (dataframe['ha_high'] >= dataframe['max']) &
+                (dataframe['max'] >= 0) 
+            )
+            , 'long'] = 1
+        #logger.debug("long() dataframe={0} ".format(dataframe))
         return dataframe
 
-    def sell(self, dataframe: DataFrame) -> DataFrame:
-        dataframe.loc[False, 'sell'] = 1
+    def short(self, dataframe: DataFrame) -> DataFrame:
+        #logger.debug("short()  ")
+        dataframe.loc[
+            (
+                (dataframe['ha_low'] <= dataframe['min']) &
+                (dataframe['min'] >= 0) 
+            )
+            , 'short'] = 1
+        #dataframe.loc[False, 'short'] = 1
         return dataframe
+
+    def close(self, dataframe: DataFrame) -> DataFrame:
+        #logger.debug("close()  ")
+        #dataframe.loc[False, 'close'] = 1
+        return dataframe
+
+

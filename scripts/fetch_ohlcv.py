@@ -19,10 +19,10 @@ logger = util.get_log(__name__)
 
 ids = conf.dev_ex_ids
 ids = [
-    'binance',
+    'okex',
 ]
 
-symbols = None
+symbols = ["XLM/ETH"]
 timeframe = None
 #since_ms = arrow.utcnow().shift(days=-1).timestamp * 1000
 since_ms = None
@@ -36,7 +36,8 @@ fetcher = fetch_exchange()
 tasks = []
 for id in ids:
     if timeframe is None or timeframe == "":
-        for tf in util.TimeFrame_Minutes.keys():
+        #for tf in util.TimeFrame_Minutes.keys():
+        for tf in util.System_Strategy_TimeFrame_Minutes.keys():
             tasks.append(asyncio.ensure_future(fetcher.run_fetch_ohlcv(id, "t_ohlcv", symbols, tf, since_ms)))
     else:
         tasks.append(asyncio.ensure_future(fetcher.run_fetch_ohlcv(id, "t_ohlcv", symbols, timeframe, since_ms)))

@@ -3,6 +3,7 @@ import os
 import sys
 import time
 #import queue
+import json
 import arrow
 import random
 import asyncio
@@ -48,6 +49,10 @@ class fetch_exchange(datahub):
         for ex in self.exchanges.values():
             await ex.close()
 
+
+    '''
+    ['f_ex_id', 'f_ex_name', 'f_countries', 'f_url_www', 'f_url_logo', 'f_url_referral', 'f_url_api', 'f_url_doc', 'f_url_fees', 'f_timeframes', 'f_ts', 'f_ts_update']
+    '''
     async def fetch_exchanges(self, ex_id, topic, shards):
         self.init_exchanges()
         records = []
@@ -62,23 +67,35 @@ class fetch_exchange(datahub):
                 continue
             f_ex_id = id
             f_ex_name = self.exchanges[ex_id].ex.name
-            f_countries = ','.join(self.exchanges[ex_id].ex.countries)
+            f_countries = json.dumps(self.exchanges[ex_id].ex.countries)
+
+            f_url_www = json.dumps(self.exchanges[ex_id].ex.urls['www'])
+            f_url_logo = json.dumps(self.exchanges[ex_id].ex.urls['logo'])
+            f_url_referral = json.dumps(self.exchanges[ex_id].ex.urls['referral'])
+            f_url_api = json.dumps(self.exchanges[ex_id].ex.urls['api'])
+            f_url_doc = json.dumps(self.exchanges[ex_id].ex.urls['doc'])
+            f_url_fees = json.dumps(self.exchanges[ex_id].ex.urls['fees'])
+
             f_timeframes = ''
             try:
                 if self.exchanges[ex_id].ex.timeframes is not None:
-                    f_timeframes = ','.join(self.exchanges[ex_id].ex.timeframes)
+                    f_timeframes = json.dumps(self.exchanges[ex_id].ex.timeframes)
             except Exception:
                 logger.info(traceback.format_exc())
-            f_url_www = self.exchanges[ex_id].ex.urls['www'][0] if type(self.exchanges[ex_id].ex.urls['www']) is list else self.exchanges[ex_id].ex.urls['www']
-            f_ts = int(round(time.time() * 1000))
+
+            f_ts = arrow.utcnow().timestamp * 1000
+            f_ts_update = arrow.utcnow().timestamp
             record = TupleRecord(schema=topic.record_schema)
-            record.values = [f_ex_id, f_ex_name, f_countries, f_url_www, f_ts, f_timeframes]
+            record.values = [f_ex_id, f_ex_name, f_countries, f_url_www, f_url_logo, f_url_referral, f_url_api, f_url_doc, f_url_fees, f_timeframes, f_ts, f_ts_update]
             record.shard_id = shards[i % len(shards)].shard_id
             records.append(record)
             i = i + 1
         logger.debug(self.to_string() + "fetch_exchanges({0}) records count={1}".format(id, len(records)))
         return records
 
+    '''
+    ['f_ex_id', 'f_symbol', 'f_base', 'f_quote', 'f_active', 'f_url', 'f_fee_maker', 'f_fee_taker', 'f_precision_amount', 'f_precision_price', 'f_limits_amount_min', 'f_limits_price_min', 'f_ts_create', 'f_ts', 'f_ts_update']
+    '''
     async def fetch_markets(self, ex_id, topic, shards):
         self.init_exchanges()
         if self.exchanges.get(ex_id) is None:
@@ -96,20 +113,27 @@ class fetch_exchange(datahub):
             f_symbol = symbol
             f_base = self.exchanges[ex_id].ex.markets[symbol]['base']
             f_quote = self.exchanges[ex_id].ex.markets[symbol]['quote']
+            f_active = self.exchanges[ex_id].ex.markets[symbol]['active'] and 1 or 0
+            f_url = ""
             f_fee_maker = self.exchanges[ex_id].ex.markets[symbol]['maker']
             f_fee_taker = self.exchanges[ex_id].ex.markets[symbol]['taker']
             f_precision_amount = self.exchanges[ex_id].ex.markets[symbol]['precision']['amount']
             f_precision_price = self.exchanges[ex_id].ex.markets[symbol]['precision']['price']
             f_limits_amount_min = self.exchanges[ex_id].ex.markets[symbol]['limits']['amount']['min']
             f_limits_price_min = self.exchanges[ex_id].ex.markets[symbol]['limits']['price']['min']
+            f_ts_create = self.exchanges[ex_id].ex.markets[symbol]['info']['Created']
             f_ts = arrow.utcnow().timestamp * 1000
+            f_ts_update = arrow.utcnow().timestamp
             record = TupleRecord(schema=topic.record_schema)
-            record.values = [f_ex_id, f_symbol, f_base, f_quote, f_fee_maker, f_fee_taker, f_precision_amount, f_precision_price, f_limits_amount_min, f_limits_price_min, f_ts]
+            record.values = [f_ex_id, f_symbol, f_base, f_quote, f_active, f_url, f_fee_maker, f_fee_taker, f_precision_amount, f_precision_price, f_limits_amount_min, f_limits_price_min, f_ts_create, f_ts, f_ts_update]
             record.shard_id = shards[i % len(shards)].shard_id
             records.append(record)
             i = i + 1
         return records
 
+    '''
+    ['f_ex_id', 'f_symbol', 'f_ts', 'f_bid', 'f_bid_volume', 'f_ask', 'f_ask_volume', 'f_vwap', 'f_open', 'f_high', 'f_low', 'f_close', 'f_last', 'f_previous_close', 'f_change', 'f_percentage', 'f_average', 'f_base_volume', 'f_quote_volume', 'f_ts_update']
+    '''
     async def fetch_tickers(self, ex_id, topic, shards):
         self.init_exchanges()
         if self.exchanges.get(ex_id) is None:
@@ -143,7 +167,7 @@ class fetch_exchange(datahub):
         f_ex_id = ex_id
         for symbol, ticker in tickers.items():
             f_symbol = symbol
-            f_ts = int(ticker['timestamp']) if ticker['timestamp'] is not None else arrow.utcnow().timestamp * 1000
+            f_ts = ticker['timestamp'] is not None and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
             f_bid = ticker['bid'] is not None and ticker['bid'] or 0
             f_bid_volume = ticker['bidVolume'] is not None and ticker['bidVolume'] or 0
             f_ask = ticker['ask'] is not None and ticker['ask'] or 0
@@ -160,7 +184,8 @@ class fetch_exchange(datahub):
             f_average = ticker['average'] is not None and ticker['average'] or 0
             f_base_volume = ticker['baseVolume'] is not None and ticker['baseVolume'] or 0
             f_quote_volume = ticker['quoteVolume'] is not None and ticker['quoteVolume'] or 0
-            v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
+            f_ts_update = arrow.utcnow().timestamp
+            v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
             record = TupleRecord(schema=topic.record_schema)
             record.values = v
             record.shard_id = shards[i % len(shards)].shard_id
@@ -193,7 +218,7 @@ class fetch_exchange(datahub):
         ticker = await self.exchanges[ex_id].ex.fetch_ticker(symbol)
         f_ex_id = self.exchanges[ex_id].ex.id
         f_symbol = symbol
-        f_ts = int(ticker['timestamp']) if ticker['timestamp'] is not None else int(round(time.time() * 1000))
+        f_ts = ticker['timestamp'] is not None and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
         f_bid = ticker['bid'] is not None and ticker['bid'] or 0
         f_bid_volume = ticker['bidVolume'] is not None and ticker['bidVolume'] or 0
         f_ask = ticker['ask'] is not None and ticker['ask'] or 0
@@ -210,7 +235,8 @@ class fetch_exchange(datahub):
         f_average = ticker['average'] is not None and ticker['average'] or 0
         f_base_volume = ticker['baseVolume'] is not None and ticker['baseVolume'] or 0
         f_quote_volume = ticker['quoteVolume'] is not None and ticker['quoteVolume'] or 0
-        v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
+        f_ts_update = arrow.utcnow().timestamp
+        v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
         record = TupleRecord(schema=topic.record_schema)
         record.values = v
         i = random.randint(1,100) % len(shards)
@@ -233,6 +259,9 @@ class fetch_exchange(datahub):
         records.append(record)
         return records
 
+    '''
+    ['f_symbol', 'f_ex1', 'f_ex1_name', 'f_ex1_bid', 'f_ex1_ts', 'f_ex1_fee', 'f_ex2', 'f_ex2_name', 'f_ex2_ask', 'f_ex2_ts', 'f_ex2_fee', 'f_ts', 'f_spread', 'f_fee', 'f_profit', 'f_profit_p', 'f_ts_update']
+    '''
     async def run_calc_spread(self, topic_name="t_spread"):
         logger.debug(self.to_string() + "run_calc_spread()")
         topic, shards = self.get_topic(topic_name)
@@ -274,12 +303,12 @@ class fetch_exchange(datahub):
                     spread_ts = ex1_ts if ex1_ts > ex2_ts else ex2_ts
                     f_fee = (ex1_bid * ex1_fee + ex2_ask * ex2_fee)
     
-                    # ['f_symbol', 'f_ex1', 'f_ex1_name', 'f_ex1_bid', 'f_ex1_ts', 'f_ex1_fee', 'f_ex2', 'f_ex2_name', 'f_ex2_ask', 'f_ex2_ts', 'f_ex2_fee', 'f_ts', 'f_spread', 'f_fee', 'f_profit', 'f_profit_p']
                     f_spread = ex1_bid-ex2_ask
                     f_profit=(f_spread - f_fee)
                     f_profit_p=(f_profit / ex1_bid) if ex1_bid > 0.0 else 0.0
+                    f_ts_update = arrow.utcnow().timestamp
                     record1 = TupleRecord(schema=topic.record_schema)
-                    record1.values = [symbol, ex1, ex1_name, ex1_bid, ex1_ts, ex1_fee, ex2, ex2_name, ex2_ask, ex2_ts, ex2_fee, spread_ts, f_spread, f_fee, f_profit, f_profit_p]
+                    record1.values = [symbol, ex1, ex1_name, ex1_bid, ex1_ts, ex1_fee, ex2, ex2_name, ex2_ask, ex2_ts, ex2_fee, spread_ts, f_spread, f_fee, f_profit, f_profit_p, f_ts_update]
                     i = random.randint(1,100) % shard_count
                     record1.shard_id = shards[i].shard_id
                     records.append(record1)
@@ -288,7 +317,7 @@ class fetch_exchange(datahub):
                     f_profit=(f_spread - f_fee)
                     f_profit_p=(f_profit / ex2_bid) if ex2_bid > 0.0 else 0.0
                     record2 = TupleRecord(schema=topic.record_schema)
-                    record2.values = [symbol, ex2, ex2_name, ex2_bid, ex2_ts, ex2_fee, ex1, ex1_name, ex1_ask, ex1_ts, ex1_fee, spread_ts, f_spread, f_fee, f_profit, f_profit_p]
+                    record2.values = [symbol, ex2, ex2_name, ex2_bid, ex2_ts, ex2_fee, ex1, ex1_name, ex1_ask, ex1_ts, ex1_fee, spread_ts, f_spread, f_fee, f_profit, f_profit_p, f_ts_update]
                     i = random.randint(1,100) % shard_count
                     record2.shard_id = shards[i].shard_id
                     records.append(record2)
@@ -309,7 +338,9 @@ class fetch_exchange(datahub):
         wait(all_task, return_when=ALL_COMPLETED)
     '''
 
-
+    '''
+    ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
+    '''
     async def run_fetch_ohlcv(self, ex_id, topic_name, symbols, timeframe_str, since_ms):
         self.init_exchanges()
         if self.exchanges.get(ex_id) is None:
@@ -319,7 +350,10 @@ class fetch_exchange(datahub):
             logger.warn(self.to_string() + "run_fetch_ohlcv({0}) NOT has interface".format(ex_id))
             return
         logger.debug(self.to_string() + "run_fetch_ohlcv({0})".format(ex_id))
-        await self.exchanges[ex_id].load_markets()
+        try:
+            await self.exchanges[ex_id].load_markets()
+        except:
+            logger.error(traceback.format_exc())
         if self.exchanges[ex_id].ex.timeframes is None or timeframe_str not in self.exchanges[ex_id].ex.timeframes:
             logger.info(self.to_string() + "run_fetch_ohlcv({0}) NOT has timeframe={1}".format(ex_id, timeframe_str))
             return
@@ -337,7 +371,8 @@ class fetch_exchange(datahub):
                 except:
                     logger.error(traceback.format_exc())
                     continue
-                f_ts_update = arrow.utcnow().timestamp * 1000
+                f_ts_update = arrow.utcnow().timestamp
+                #logger.debug(self.to_string() + "run_fetch_ohlcv() f_ts_update={0}".format(f_ts_update))
                 records = []
                 for d in data:
                     f_ts = d[0]

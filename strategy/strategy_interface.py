@@ -24,10 +24,14 @@ class IStrategy(ABC):
         pass
     
     @abstractmethod
-    def buy(self, dataframe: DataFrame) -> DataFrame:
+    def long(self, dataframe: DataFrame) -> DataFrame:
         pass
         
     @abstractmethod
-    def sell(self, dataframe: DataFrame) -> DataFrame:
+    def short(self, dataframe: DataFrame) -> DataFrame:
         pass
-        
+
+    @abstractmethod
+    def close(self, dataframe: DataFrame) -> DataFrame:
+        pass
+

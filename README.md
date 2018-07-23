@@ -31,10 +31,13 @@ wget https://www.python.org/ftp/python/3.6.6/Python-3.6.6.tar.xz
 pip install --upgrade ccxt
 pip install --upgrade cfscrape
 pip install --upgrade numpy
-pip install futures
 pip install arrow
-
+pip install talib
 ```
+
+talib安装
+http://blog.chinaunix.net/uid-21519621-id-5757088.html
+
 
 ## aliyun 大数据总线(DataHub) 
 
