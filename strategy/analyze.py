@@ -112,16 +112,16 @@ class analyze(object):
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
         t_symbols_analyze = db.t_symbols_analyze.query.filter(
-            db.t_symbols_analyze.f_ex_id == self.ex_id,
-            db.t_symbols_analyze.f_symbol == self.symbol,
-            db.t_symbols_analyze.f_timeframe == self.timeframe
+            db.t_symbols_analyze.f_ex_id == str(self.ex_id),
+            db.t_symbols_analyze.f_symbol == str(self.symbol),
+            db.t_symbols_analyze.f_timeframe == int(self.timeframe)
             ).first()
         if t_symbols_analyze is None:
             logger.debug(self.to_string() + "update_db() t_symbols_analyze is None  ")
             t_symbols_analyze = db.t_symbols_analyze(
                 f_ex_id = self.ex_id,
                 f_symbol = self.symbol,
-                f_timeframe = self.timeframe
+                f_timeframe = int(self.timeframe)
             )
         #logger.debug(self.to_string() + "update_db() t_symbols_analyze  ")
         t_symbols_analyze.f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
@@ -135,32 +135,33 @@ class analyze(object):
         t_symbols_analyze.f_channel_up = float(latest['max'])
         t_symbols_analyze.f_channel_low = float(latest['min'])
 
-        if t_symbols_analyze.f_breakout_trend == 0 or latest['date'] - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:
-            if latest['close'] > t_symbols_analyze.f_channel_up:
+        date_ms = arrow.get(latest['date']).timestamp * 1000
+        if t_symbols_analyze.f_breakout_trend == 0 or date_ms - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:
+            if float(latest['high']) >= t_symbols_analyze.f_channel_up:
                 t_symbols_analyze.f_breakout_trend = 1
-                t_symbols_analyze.f_breakout_price = latest['close']
+                t_symbols_analyze.f_breakout_price = float(latest['close'])
                 t_symbols_analyze.f_breakout_price_highest = t_symbols_analyze.f_channel_up
                 t_symbols_analyze.f_breakout_rate = t_symbols_analyze.f_channel_up / t_symbols_analyze.f_breakout_price
-            elif latest['close'] < t_symbols_analyze.f_channel_low:
+            elif float(latest['low']) <= t_symbols_analyze.f_channel_low:
                 t_symbols_analyze.f_breakout_trend = -1
-                t_symbols_analyze.f_breakout_price = latest['close']
+                t_symbols_analyze.f_breakout_price = float(latest['close'])
                 t_symbols_analyze.f_breakout_price_highest = t_symbols_analyze.f_channel_low
                 t_symbols_analyze.f_breakout_rate = t_symbols_analyze.f_channel_low / t_symbols_analyze.f_breakout_price
             if t_symbols_analyze.f_breakout_trend != 0:
-                t_symbols_analyze.f_breakout_ts = latest['date']
-                t_symbols_analyze.f_breakout_volume = latest['volume']
+                t_symbols_analyze.f_breakout_ts = date_ms
+                t_symbols_analyze.f_breakout_volume = float(latest['volume'])
                 t_symbols_analyze.f_breakout_volume_rate = t_symbols_analyze.f_breakout_volume / t_symbols_analyze.f_volume_mean
                 t_symbols_analyze.f_breakout_price_highest_ts =  t_symbols_analyze.f_breakout_ts
                 t_symbols_analyze.f_breakout_rate_max = t_symbols_analyze.f_breakout_rate
         elif t_symbols_analyze.f_breakout_trend == 1:
             if t_symbols_analyze.f_channel_up > t_symbols_analyze.f_breakout_price_highest:
                 t_symbols_analyze.f_breakout_price_highest = max(t_symbols_analyze.f_breakout_price_highest, t_symbols_analyze.f_channel_up)
-                t_symbols_analyze.f_breakout_price_highest_ts = latest['date']
+                t_symbols_analyze.f_breakout_price_highest_ts = date_ms
             t_symbols_analyze.f_breakout_rate_max = max(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
         elif t_symbols_analyze.f_breakout_trend == -1:
             if t_symbols_analyze.f_channel_low < t_symbols_analyze.f_breakout_price_highest:
                 t_symbols_analyze.f_breakout_price_highest = min(t_symbols_analyze.f_breakout_price_highest, t_symbols_analyze.f_channel_low)
-                t_symbols_analyze.f_breakout_price_highest_ts = latest['date']
+                t_symbols_analyze.f_breakout_price_highest_ts = date_ms
             t_symbols_analyze.f_breakout_rate_max = min(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
         db.t_symbols_analyze.session.merge(t_symbols_analyze)
         db.t_symbols_analyze.session.flush()

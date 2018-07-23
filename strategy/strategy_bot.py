@@ -300,8 +300,6 @@ class strategy_bot(object):
                 except:
                     logger.error(traceback.format_exc())
 
-                        
-
     # ['f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v']
     def process_position(self, userid, ex_id, symbol, tf, ohlcv_list):
         #logger.debug(self.to_string() + "process_position({0},{1},{2},{3},{4}) start".format(userid, ex_id, symbol, tf, ohlcv_list))

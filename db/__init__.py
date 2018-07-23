@@ -43,7 +43,7 @@ def init() -> None:
     charset = conf_aliyun_mysql['charset']
     db_url = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}?charset={5}".format(user, password, host, port, db, charset)
     logger.info(db_url)
-    engine = create_engine(db_url, echo=False)
+    engine = create_engine(db_url, echo = False)
 
     session = scoped_session(sessionmaker(bind=engine, autoflush=True, autocommit=True))
 
