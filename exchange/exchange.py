@@ -38,8 +38,8 @@ class exchange(object):
         else:
             raise Exception(self.to_string() + "ex_id error")
 
-        #if conf.dev_or_product == 1:
-        #    self.ex.aiohttp_proxy = "http://127.0.0.1:1080"
+        if conf.dev_local == 1:
+            self.ex.aiohttp_proxy = "http://127.0.0.1:1080"
         
         '''
         self.ex.markets['ETH/BTC']['limits']['amount']['min']   # 最小交易量 0.000001
