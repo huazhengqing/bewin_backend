@@ -213,30 +213,18 @@ class exchange(object):
         #logger.debug(self.to_string() + "fetch_ohlcv({0}, {1}, {2}) start".format(symbol, period, since_ms))
         if timeframe not in self.ex.timeframes:
             return []
-
-        # last item should be in the time interval [now - tick_interval, now]
-        till_time_ms = arrow.utcnow().shift(minutes=-1).timestamp * 1000
-        # it looks as if some exchanges return cached data
-        # and they update it one in several minute, so 10 mins interval
-        # is necessary to skeep downloading of an empty array when all
-        # chached data was already downloaded
-        till_time_ms = min(till_time_ms, arrow.utcnow().shift(minutes=-10).timestamp * 1000)
-
         data = []
-        while not since_ms or since_ms < till_time_ms:
+        while True:
             data_part = await self.ex.fetch_ohlcv(symbol, timeframe=timeframe, since=since_ms)
-
-            # Because some exchange sort Tickers ASC and other DESC.
-            # Ex: Bittrex returns a list of tickers ASC (oldest first, newest last)
-            # when GDAX returns a list of tickers DESC (newest first, oldest last)
-            data_part = sorted(data_part, key=lambda x: x[0])
-
             if not data_part:
                 break
-
+            data_part = sorted(data_part, key=lambda x: x[0])
             data.extend(data_part)
+            if since_ms is None:
+                break
             since_ms = data[-1][0] + 1
-
+            if since_ms >= arrow.utcnow().shift(minutes=-util.TimeFrame_Minutes[timeframe]).timestamp * 1000:
+                break
         logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) end  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
         return data
 

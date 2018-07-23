@@ -22,25 +22,22 @@ ids = [
     'okex',
 ]
 
-symbols = ["XLM/ETH"]
-timeframe = None
-#since_ms = arrow.utcnow().shift(days=-1).timestamp * 1000
-since_ms = None
-
-
 if conf.dev_or_product == 2:
     ids = conf.product_ex_ids
+
+
+symbols = []
+
+since_ms = arrow.utcnow().shift(days=-180).timestamp * 1000
 
 fetcher = fetch_exchange()
 
 tasks = []
 for id in ids:
-    if timeframe is None or timeframe == "":
-        #for tf in util.TimeFrame_Minutes.keys():
-        for tf in util.System_Strategy_TimeFrame_Minutes.keys():
-            tasks.append(asyncio.ensure_future(fetcher.run_fetch_ohlcv(id, "t_ohlcv", symbols, tf, since_ms)))
-    else:
-        tasks.append(asyncio.ensure_future(fetcher.run_fetch_ohlcv(id, "t_ohlcv", symbols, timeframe, since_ms)))
+    #for tf in util.TimeFrame_Minutes.keys():
+    for tf in util.System_Strategy_TimeFrame_Minutes.keys():
+        tasks.append(asyncio.ensure_future(fetcher.run_fetch_ohlcv(id, "t_ohlcv", symbols, tf, since_ms)))
+
 
 
 

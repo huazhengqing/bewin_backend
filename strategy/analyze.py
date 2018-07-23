@@ -51,7 +51,7 @@ class analyze(object):
         return "analyze[{0},{1},{2},{3}] ".format(self.userid, self.ex_id, self.symbol, self.timeframe)
 
     def load_ohlcv_from_db(self):
-        logger.debug(self.to_string() + "load_ohlcv_from_db() start")
+        #logger.debug(self.to_string() + "load_ohlcv_from_db() start")
         list_ohlcv = []
         for t_ohlcv in db.t_ohlcv.query.filter(
             db.t_ohlcv.f_ex_id == self.ex_id,
@@ -110,23 +110,53 @@ class analyze(object):
         return (long, short, close)
 
     def update_db(self):
+        #logger.debug(self.to_string() + "update_db() start  ")
+        latest = self.dataframe.iloc[-1]
+        #logger.debug(self.to_string() + "update_db() start latest={0}".format(latest))
+        
+        '''
+        f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
+        f_volume_mean = latest['volume_mean']
+        f_volume = latest['volume']
+        f_ma_period = self.strategy._ma_period
+        f_ma_up = latest['ma_high']
+        f_ma_low = latest['ma_low']
+        f_ma_trend = latest['ma_trend']
+        f_channel_period = self.strategy._channel_period
+        f_channel_up = latest['max']
+        f_channel_low = latest['min']
+        logger.debug(self.to_string() + "update_db()  f_bar_trend={0}".format(f_bar_trend))
+        logger.debug(self.to_string() + "update_db()  f_volume_mean={0}".format(f_volume_mean))
+        logger.debug(self.to_string() + "update_db()  f_volume={0}".format(f_volume))
+        logger.debug(self.to_string() + "update_db()  f_ma_period={0}".format(f_ma_period))
+        logger.debug(self.to_string() + "update_db()  f_ma_up={0}".format(f_ma_up))
+        logger.debug(self.to_string() + "update_db()  f_ma_low={0}".format(f_ma_low))
+        logger.debug(self.to_string() + "update_db()  f_ma_trend={0}".format(f_ma_trend))
+        logger.debug(self.to_string() + "update_db()  f_channel_up={0}".format(f_channel_up))
+        logger.debug(self.to_string() + "update_db()  f_channel_low={0}".format(f_channel_low))
+        '''
+
         t_symbols_analyze = db.t_symbols_analyze(
             f_ex_id = self.ex_id,
             f_symbol = self.symbol,
             f_timeframe = self.timeframe,
-            f_bar_trend = self.dataframe['ha_open'] < self.dataframe['ha_close'] and 1 or -1,
-            f_volume_mean = self.dataframe['volume'].mean(),
-            f_volume = self.dataframe['volume'],
+            f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1,
+            f_volume_mean = float(latest['volume_mean']),
+            f_volume = float(latest['volume']),
             f_ma_period = self.strategy._ma_period,
-            f_ma_up = self.dataframe['ma_high'],
-            f_ma_low = self.dataframe['ma_low'],
-            f_ma_trend = self.dataframe['ma_close'].shift(1) < self.dataframe['ma_close'] and 1 or -1,
+            f_ma_up = float(latest['ma_high']),
+            f_ma_low = float(latest['ma_low']),
+            f_ma_trend = float(latest['ma_trend']),
             f_channel_period = self.strategy._channel_period,
-            f_channel_up = self.dataframe['max'].shfit(1),
-            f_channel_low = self.dataframe['min']
+            f_channel_up = float(latest['max']),
+            f_channel_low = float(latest['min'])
         )
+        #logger.debug(self.to_string() + "update_db()  t_symbols_analyze={0}".format(t_symbols_analyze))
+        #db.t_symbols_analyze.session.add(t_symbols_analyze)
         db.t_symbols_analyze.session.merge(t_symbols_analyze)
+        #db.t_symbols_analyze.session.commit()
         db.t_symbols_analyze.session.flush()
+        logger.debug(self.to_string() + "update_db() flush  111111  ")
 
         t_symbols_analyze = db.t_symbols_analyze.query.filter(
             db.t_symbols_analyze.f_ex_id == self.ex_id,
@@ -135,33 +165,34 @@ class analyze(object):
             ).first()
         if t_symbols_analyze is None:
             raise Exception(self.to_string() + "t_symbols_analyze = None")
+        logger.debug(self.to_string() + "update_db() t_symbols_analyze={0}".format(t_symbols_analyze))
 
-        if t_symbols_analyze.f_breakout_trend == 0 or self.dataframe['date'] - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:
-            if self.dataframe['close'] > t_symbols_analyze.f_channel_up:
+        if t_symbols_analyze.f_breakout_trend == 0 or latest['date'] - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:
+            if latest['close'] > t_symbols_analyze.f_channel_up:
                 t_symbols_analyze.f_breakout_trend = 1
-                t_symbols_analyze.f_breakout_price = self.dataframe['close']
+                t_symbols_analyze.f_breakout_price = latest['close']
                 t_symbols_analyze.f_breakout_price_highest = t_symbols_analyze.f_channel_up
                 t_symbols_analyze.f_breakout_rate = t_symbols_analyze.f_channel_up / t_symbols_analyze.f_breakout_price
-            elif self.dataframe['close'] < t_symbols_analyze.f_channel_low:
+            elif latest['close'] < t_symbols_analyze.f_channel_low:
                 t_symbols_analyze.f_breakout_trend = -1
-                t_symbols_analyze.f_breakout_price = self.dataframe['close']
+                t_symbols_analyze.f_breakout_price = latest['close']
                 t_symbols_analyze.f_breakout_price_highest = t_symbols_analyze.f_channel_low
                 t_symbols_analyze.f_breakout_rate = t_symbols_analyze.f_channel_low / t_symbols_analyze.f_breakout_price
             if t_symbols_analyze.f_breakout_trend != 0:
-                t_symbols_analyze.f_breakout_ts = self.dataframe['date']
-                t_symbols_analyze.f_breakout_volume = self.dataframe['volume']
+                t_symbols_analyze.f_breakout_ts = latest['date']
+                t_symbols_analyze.f_breakout_volume = latest['volume']
                 t_symbols_analyze.f_breakout_volume_rate = t_symbols_analyze.f_breakout_volume / t_symbols_analyze.f_volume_mean
                 t_symbols_analyze.f_breakout_price_highest_ts =  t_symbols_analyze.f_breakout_ts
                 t_symbols_analyze.f_breakout_rate_max = t_symbols_analyze.f_breakout_rate
         elif t_symbols_analyze.f_breakout_trend == 1:
             if t_symbols_analyze.f_channel_up > t_symbols_analyze.f_breakout_price_highest:
                 t_symbols_analyze.f_breakout_price_highest = max(t_symbols_analyze.f_breakout_price_highest, t_symbols_analyze.f_channel_up)
-                t_symbols_analyze.f_breakout_price_highest_ts = self.dataframe['date']
+                t_symbols_analyze.f_breakout_price_highest_ts = latest['date']
             t_symbols_analyze.f_breakout_rate_max = max(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
         elif t_symbols_analyze.f_breakout_trend == -1:
             if t_symbols_analyze.f_channel_low < t_symbols_analyze.f_breakout_price_highest:
                 t_symbols_analyze.f_breakout_price_highest = min(t_symbols_analyze.f_breakout_price_highest, t_symbols_analyze.f_channel_low)
-                t_symbols_analyze.f_breakout_price_highest_ts = self.dataframe['date']
+                t_symbols_analyze.f_breakout_price_highest_ts = latest['date']
             t_symbols_analyze.f_breakout_rate_max = min(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
         db.t_symbols_analyze.session.merge(t_symbols_analyze)
         db.t_symbols_analyze.session.flush()
@@ -172,6 +203,7 @@ class analyze(object):
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_bid', 'f_ask', 'f_spread', 'f_bar_trend', 'f_volume_mean', 'f_volume', 'f_ma_period', 'f_ma_up', 'f_ma_low', 'f_ma_trend', 'f_channel_period', 'f_channel_up', 'f_channel_low', 'f_breakout_trend', 'f_breakout_ts', 'f_breakout_price', 'f_breakout_volume', 'f_breakout_volume_rate', 'f_breakout_price_highest', 'f_breakout_price_highest_ts', 'f_breakout_rate', 'f_breakout_rate_max', 'f_ts_update']
     '''
     def pub_topic(self, t_symbols_analyze):
+        logger.debug(self.to_string() + "pub_topic() t_symbols_analyze={0}".format(t_symbols_analyze))
         if self.datahub is None:
             return
         topic_name = "t_symbols_analyze"

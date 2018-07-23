@@ -43,11 +43,7 @@ def init() -> None:
     charset = conf_aliyun_mysql['charset']
     db_url = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}?charset={5}".format(user, password, host, port, db, charset)
     logger.info(db_url)
-    try:
-        engine = create_engine(db_url, echo=False)
-    except NoSuchModuleError:
-        raise OperationalException(f'Given value for db_url: \'{db_url}\' '
-                                   f'is no valid database URL!')
+    engine = create_engine(db_url, echo=False)
 
     session = scoped_session(sessionmaker(bind=engine, autoflush=True, autocommit=True))
 
@@ -302,8 +298,8 @@ class t_symbols_analyze(_DECL_BASE):
     f_ma_low = Column(Float, nullable=False)
     f_ma_trend = Column(Integer, nullable=False)
     f_channel_period = Column(Integer, nullable=False)
-    f_channel_up = Column(Integer, nullable=False)
-    f_channel_low = Column(Integer, nullable=False)
+    f_channel_up = Column(Float, nullable=False)
+    f_channel_low = Column(Float, nullable=False)
     f_breakout_trend = Column(Integer, nullable=False)
     f_breakout_ts = Column(Integer, nullable=False)
     f_breakout_price = Column(Float, nullable=False)

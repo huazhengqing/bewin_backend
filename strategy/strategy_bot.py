@@ -185,8 +185,8 @@ class strategy_bot(object):
             if t_markets.f_ex_id in util.System_Strategy_ex:
                 if t_markets.f_quote in util.System_Strategy_quote:
                     for tf in util.System_Strategy_Minutes_TimeFrame.keys():
-                        if t_markets.f_base != "XLM":   # only for test
-                            continue
+                        #if t_markets.f_base != "XLM":   # only for test
+                        #    continue
                         logger.debug(self.to_string() + "init_system_strategy() self.user_strategy[{0}][{1}][{2}][{3}] ".format(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf))
                         a = analyze(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf, strategy_breakout())
                         a.datahub = self.datahub
@@ -291,14 +291,14 @@ class strategy_bot(object):
                 try:
                     self.process_position(userid, ex_id, symbol, tf, [ohlcv])
                 except:
-                    pass
+                    logger.error(traceback.format_exc())
                 try:
                     if userid == 0:
                         self.process_strategy_system(userid, ex_id, symbol, tf, [ohlcv])
                     else:
                         self.process_strategy_user(userid, ex_id, symbol, tf, [ohlcv])
                 except:
-                    pass
+                    logger.error(traceback.format_exc())
 
                         
 

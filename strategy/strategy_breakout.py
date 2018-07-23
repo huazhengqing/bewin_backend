@@ -25,6 +25,8 @@ class strategy_breakout(IStrategy):
         dataframe['ma_high'] = ta.EMA(dataframe, timeperiod=self._ma_period, price='high')
         dataframe['ma_low'] = ta.EMA(dataframe, timeperiod=self._ma_period, price='low')
         dataframe['ma_close'] = ta.EMA(dataframe, timeperiod=self._ma_period, price='close')
+        dataframe.loc[(dataframe['ma_close'].shift(1) < dataframe['ma_close']), 'ma_trend'] = 1
+        dataframe.loc[(dataframe['ma_close'].shift(1) > dataframe['ma_close']), 'ma_trend'] = -1
 
         heikinashi = qtpylib.heikinashi(dataframe)
         dataframe['ha_open'] = heikinashi['open']
@@ -34,6 +36,8 @@ class strategy_breakout(IStrategy):
 
         dataframe['atr'] = qtpylib.atr(dataframe)
 
+        dataframe['volume_mean'] = dataframe['volume'].mean()
+    
         #logger.debug("strategy_breakout() end  dataframe={0} ".format(dataframe))
         return dataframe
 

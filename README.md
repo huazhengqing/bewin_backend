@@ -34,6 +34,8 @@ pip install --upgrade cfscrape
 pip install --upgrade numpy
 pip install arrow
 pip install talib
+pip install sqlalchemy
+
 ```
 
 

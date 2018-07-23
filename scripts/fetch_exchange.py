@@ -363,6 +363,7 @@ class fetch_exchange(datahub):
         f_ex_id = ex_id
         f_timeframe = util.TimeFrame_Minutes[timeframe_str]
         while True:
+            ts_start = arrow.utcnow().shift(minutes=-1).timestamp * 1000
             i = 0
             for symbol in symbols:
                 f_symbol = symbol
@@ -388,4 +389,5 @@ class fetch_exchange(datahub):
                     i = i + 1
                 logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2},{3})len(records) = {4}".format(ex_id, topic_name, symbol, timeframe_str, len(records)))
                 self.pub_topic(topic_name, records)
+            since_ms = ts_start
                 
