@@ -13,7 +13,7 @@ import traceback
 #import multiprocessing
 #import concurrent.futures
 #from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait, ALL_COMPLETED, FIRST_COMPLETED
-import ccxt.async as ccxt
+import ccxt.async_support as ccxt
 from datahub import DataHub
 from datahub.exceptions import DatahubException, ResourceExistException
 from datahub.models import RecordType, FieldType, RecordSchema, BlobRecord, TupleRecord, CursorType

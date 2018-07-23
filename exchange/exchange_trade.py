@@ -11,7 +11,7 @@ import asyncio
 import datetime
 import traceback
 import sqlalchemy as sql
-import ccxt.async as ccxt
+import ccxt.async_support as ccxt
 from random import randint
 from typing import List, Dict, Any, Optional
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

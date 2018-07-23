@@ -15,8 +15,6 @@ pip install --upgrade shadowsocks
 - [python3.6.6](https://www.python.org)
 - [Anaconda](https://www.anaconda.com/)
 
-安装 Python-3.6.6
-ccxt 当前版本不支持 Python-3.7
 
 ```shell
 yum install -y openssl-devel libffi-devel
@@ -26,6 +24,7 @@ wget https://www.python.org/ftp/python/3.6.6/Python-3.6.6.tar.xz
 ## ccxt
 
 - [ccxt](https://github.com/ccxt/ccxt)
+- [talib安装](http://blog.chinaunix.net/uid-21519621-id-5757088.html)
 
 ```shell
 pip install --upgrade ccxt
@@ -35,8 +34,6 @@ pip install arrow
 pip install talib
 ```
 
-talib安装
-http://blog.chinaunix.net/uid-21519621-id-5757088.html
 
 
 ## aliyun 大数据总线(DataHub) 

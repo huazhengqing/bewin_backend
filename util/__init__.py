@@ -2,7 +2,7 @@ import os
 import sys
 import math
 import logging
-import ccxt.async as ccxt
+import ccxt.async_support as ccxt
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import conf

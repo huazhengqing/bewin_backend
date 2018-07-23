@@ -12,7 +12,7 @@ from typing import Any, Callable, Dict, List, Optional
 from datahub.models import RecordType, FieldType, RecordSchema, BlobRecord, TupleRecord, CursorType
 import arrow
 import requests
-import ccxt.async as ccxt
+import ccxt.async_support as ccxt
 #from cachetools import TTLCache, cached
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
