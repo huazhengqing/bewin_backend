@@ -27,6 +27,7 @@ python -m pip install --upgrade pip
 - [ccxt](https://github.com/ccxt/ccxt)
 - [talib安装(linux)](https://blog.csdn.net/fortiy/article/details/76531700)
 - [talib安装(windows)](http://blog.chinaunix.net/uid-21519621-id-5757088.html)
+- [talib windows 64位安装](https://blog.csdn.net/xiongjx3/article/details/80274678)
 
 ```shell
 pip install --upgrade ccxt
