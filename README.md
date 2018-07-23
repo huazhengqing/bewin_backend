@@ -19,12 +19,14 @@ pip install --upgrade shadowsocks
 ```shell
 yum install -y openssl-devel libffi-devel
 wget https://www.python.org/ftp/python/3.6.6/Python-3.6.6.tar.xz
+python -m pip install --upgrade pip
 ```
 
 ## ccxt
 
 - [ccxt](https://github.com/ccxt/ccxt)
-- [talib安装](http://blog.chinaunix.net/uid-21519621-id-5757088.html)
+- [talib安装(linux)](https://blog.csdn.net/fortiy/article/details/76531700)
+- [talib安装(windows)](http://blog.chinaunix.net/uid-21519621-id-5757088.html)
 - [talib windows 64位安装](https://blog.csdn.net/xiongjx3/article/details/80274678)
 
 ```shell
