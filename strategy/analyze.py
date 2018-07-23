@@ -113,29 +113,6 @@ class analyze(object):
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
         #logger.debug(self.to_string() + "update_db() start latest={0}".format(latest))
-        
-        '''
-        f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
-        f_volume_mean = latest['volume_mean']
-        f_volume = latest['volume']
-        f_ma_period = self.strategy._ma_period
-        f_ma_up = latest['ma_high']
-        f_ma_low = latest['ma_low']
-        f_ma_trend = latest['ma_trend']
-        f_channel_period = self.strategy._channel_period
-        f_channel_up = latest['max']
-        f_channel_low = latest['min']
-        logger.debug(self.to_string() + "update_db()  f_bar_trend={0}".format(f_bar_trend))
-        logger.debug(self.to_string() + "update_db()  f_volume_mean={0}".format(f_volume_mean))
-        logger.debug(self.to_string() + "update_db()  f_volume={0}".format(f_volume))
-        logger.debug(self.to_string() + "update_db()  f_ma_period={0}".format(f_ma_period))
-        logger.debug(self.to_string() + "update_db()  f_ma_up={0}".format(f_ma_up))
-        logger.debug(self.to_string() + "update_db()  f_ma_low={0}".format(f_ma_low))
-        logger.debug(self.to_string() + "update_db()  f_ma_trend={0}".format(f_ma_trend))
-        logger.debug(self.to_string() + "update_db()  f_channel_up={0}".format(f_channel_up))
-        logger.debug(self.to_string() + "update_db()  f_channel_low={0}".format(f_channel_low))
-        '''
-
         t_symbols_analyze = db.t_symbols_analyze(
             f_ex_id = self.ex_id,
             f_symbol = self.symbol,
@@ -152,11 +129,8 @@ class analyze(object):
             f_channel_low = float(latest['min'])
         )
         #logger.debug(self.to_string() + "update_db()  t_symbols_analyze={0}".format(t_symbols_analyze))
-        #db.t_symbols_analyze.session.add(t_symbols_analyze)
         db.t_symbols_analyze.session.merge(t_symbols_analyze)
-        #db.t_symbols_analyze.session.commit()
         db.t_symbols_analyze.session.flush()
-        logger.debug(self.to_string() + "update_db() flush  111111  ")
 
         t_symbols_analyze = db.t_symbols_analyze.query.filter(
             db.t_symbols_analyze.f_ex_id == self.ex_id,
@@ -165,7 +139,6 @@ class analyze(object):
             ).first()
         if t_symbols_analyze is None:
             raise Exception(self.to_string() + "t_symbols_analyze = None")
-        logger.debug(self.to_string() + "update_db() t_symbols_analyze={0}".format(t_symbols_analyze))
 
         if t_symbols_analyze.f_breakout_trend == 0 or latest['date'] - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:
             if latest['close'] > t_symbols_analyze.f_channel_up:
@@ -239,11 +212,7 @@ class analyze(object):
         ]
         record.shard_id = shards[randint(1, 1000) % len(shards)].shard_id
         self.datahub.pub_topic(topic_name, [record])
-                
-
-
-
-
+        
 
 
 

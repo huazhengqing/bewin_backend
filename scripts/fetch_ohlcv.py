@@ -28,7 +28,8 @@ if conf.dev_or_product == 2:
 
 symbols = []
 
-since_ms = arrow.utcnow().shift(days=-180).timestamp * 1000
+#since_ms = arrow.utcnow().shift(days=-180).timestamp * 1000
+since_ms = arrow.utcnow().shift(days=-1).timestamp * 1000
 
 fetcher = fetch_exchange()
 

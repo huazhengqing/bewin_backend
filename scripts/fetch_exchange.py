@@ -363,7 +363,7 @@ class fetch_exchange(datahub):
         f_ex_id = ex_id
         f_timeframe = util.TimeFrame_Minutes[timeframe_str]
         while True:
-            ts_start = arrow.utcnow().shift(minutes=-1).timestamp * 1000
+            ts_start = arrow.utcnow().shift(minutes=-10).timestamp * 1000
             i = 0
             for symbol in symbols:
                 f_symbol = symbol
