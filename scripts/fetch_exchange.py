@@ -390,4 +390,5 @@ class fetch_exchange(datahub):
                 logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2},{3})len(records) = {4}".format(ex_id, topic_name, symbol, timeframe_str, len(records)))
                 self.pub_topic(topic_name, records)
             since_ms = ts_start
+            since_ms = None
                 

@@ -310,7 +310,7 @@ class t_symbols_analyze(_DECL_BASE):
     f_breakout_rate = Column(Float, nullable=False, default=0.0)
     f_breakout_rate_max = Column(Float, nullable=False, default=0.0)
     f_recommend = Column(Float, nullable=False, default=0.0)
-    f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
 
 

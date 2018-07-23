@@ -71,7 +71,6 @@ class analyze(object):
                                     unit='ms',
                                     utc=True,
                                     infer_datetime_format=True)
-        # group by index and aggregate results to eliminate duplicate ticks
         frame = frame.groupby(by='date', as_index=False, sort=True).agg({
             'open': 'first',
             'high': 'max',
@@ -79,13 +78,13 @@ class analyze(object):
             'close': 'last',
             'volume': 'max',
         })
-        frame.drop(frame.tail(1).index, inplace=True)     # eliminate partial candle
+        frame.drop(frame.tail(1).index, inplace=True) 
         logger.debug("parse_ohlcv_dataframe() end  len(frame)={0} ".format(len(frame)))
         return frame
 
     def calc_signal(self, ohlcv : List[Dict]) -> Tuple[bool, bool, bool]:
         self.ohlcv_list.extend(ohlcv)
-        if self.ohlcv_list is None or len(self.ohlcv_list) <= 100:
+        if self.ohlcv_list is None or len(self.ohlcv_list) <= 10:
             return (False, False, False)
         try:
             self.dataframe = self.parse_ohlcv_dataframe(self.ohlcv_list)
@@ -112,33 +111,29 @@ class analyze(object):
     def update_db(self):
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
-        #logger.debug(self.to_string() + "update_db() start latest={0}".format(latest))
-        t_symbols_analyze = db.t_symbols_analyze(
-            f_ex_id = self.ex_id,
-            f_symbol = self.symbol,
-            f_timeframe = self.timeframe,
-            f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1,
-            f_volume_mean = float(latest['volume_mean']),
-            f_volume = float(latest['volume']),
-            f_ma_period = self.strategy._ma_period,
-            f_ma_up = float(latest['ma_high']),
-            f_ma_low = float(latest['ma_low']),
-            f_ma_trend = float(latest['ma_trend']),
-            f_channel_period = self.strategy._channel_period,
-            f_channel_up = float(latest['max']),
-            f_channel_low = float(latest['min'])
-        )
-        #logger.debug(self.to_string() + "update_db()  t_symbols_analyze={0}".format(t_symbols_analyze))
-        db.t_symbols_analyze.session.merge(t_symbols_analyze)
-        db.t_symbols_analyze.session.flush()
-
         t_symbols_analyze = db.t_symbols_analyze.query.filter(
             db.t_symbols_analyze.f_ex_id == self.ex_id,
             db.t_symbols_analyze.f_symbol == self.symbol,
             db.t_symbols_analyze.f_timeframe == self.timeframe
             ).first()
         if t_symbols_analyze is None:
-            raise Exception(self.to_string() + "t_symbols_analyze = None")
+            logger.debug(self.to_string() + "update_db() t_symbols_analyze is None  ")
+            t_symbols_analyze = db.t_symbols_analyze(
+                f_ex_id = self.ex_id,
+                f_symbol = self.symbol,
+                f_timeframe = self.timeframe
+            )
+        #logger.debug(self.to_string() + "update_db() t_symbols_analyze  ")
+        t_symbols_analyze.f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
+        t_symbols_analyze.f_volume_mean = float(latest['volume_mean'])
+        t_symbols_analyze.f_volume = float(latest['volume'])
+        t_symbols_analyze.f_ma_period = self.strategy._ma_period
+        t_symbols_analyze.f_ma_up = float(latest['ma_high'])
+        t_symbols_analyze.f_ma_low = float(latest['ma_low'])
+        t_symbols_analyze.f_ma_trend = float(latest['ma_trend'])
+        t_symbols_analyze.f_channel_period = self.strategy._channel_period
+        t_symbols_analyze.f_channel_up = float(latest['max'])
+        t_symbols_analyze.f_channel_low = float(latest['min'])
 
         if t_symbols_analyze.f_breakout_trend == 0 or latest['date'] - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:
             if latest['close'] > t_symbols_analyze.f_channel_up:
@@ -169,6 +164,7 @@ class analyze(object):
             t_symbols_analyze.f_breakout_rate_max = min(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
         db.t_symbols_analyze.session.merge(t_symbols_analyze)
         db.t_symbols_analyze.session.flush()
+        logger.debug(self.to_string() + "update_db() t_symbols_analyze  flush  ")
 
         self.pub_topic(t_symbols_analyze)
 
