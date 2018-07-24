@@ -254,7 +254,8 @@ class datahub():
                         #logger.debug(self.to_string() + "run_get_topic({0},{1})get_result={2}".format(self.project_name, topic_name, get_result.records))
                         await func(get_result.records, *args, **kwargs)
                     else:
-                        time.sleep(1)
+                        await asyncio.sleep(0)
+                        #logger.debug(self.to_string() + "run_get_topic({0},{1})  sleep  ".format(self.project_name, topic_name))
                     cursor = get_result.next_cursor
                 except DatahubException as e:
                     logger.error(traceback.format_exc(e))
@@ -265,4 +266,6 @@ class datahub():
                 except:
                     logger.error(traceback.format_exc())
                     #await asyncio.sleep(10)
+            await asyncio.sleep(0)
+            
 

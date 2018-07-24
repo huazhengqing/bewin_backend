@@ -27,8 +27,6 @@ for i in range(100):
     tasks.append(asyncio.ensure_future(bot.topic_records_process()))
 
 
-
-
 pending = asyncio.Task.all_tasks()
 loop = asyncio.get_event_loop()
 try:

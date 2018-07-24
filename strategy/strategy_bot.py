@@ -283,6 +283,7 @@ class strategy_bot(object):
 
 
     async def topic_records_get(self, records: TupleRecord):
+        logger.debug(self.to_string() + "topic_records_get() len(records)={0}".format(len(records)))
         for record in records:
             await self.queue_task_record.put(record)
 
@@ -291,9 +292,11 @@ class strategy_bot(object):
     record.values=('okex', 'NGC/BTC', 5, 1532270100000, 6.444e-05, 6.444e-05, 6.444e-05, 6.444e-05, 0.0, 1532270536)
     '''
     async def topic_records_process(self):
+        #logger.debug(self.to_string() + "topic_records_process()")
         while True:
-            # 数据太多，处理不完
             qsize = self.queue_task_record.qsize()
+            logger.debug(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
+            # 数据太多，处理不完
             if qsize >= 100:
                 logger.warn(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
                 '''
