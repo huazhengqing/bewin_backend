@@ -112,6 +112,8 @@ class analyze(object):
     def update_db(self):
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
+        if latest['ma_high'] == 'nan' or latest['max'] == 'nan' or latest['volume_mean'] == 'nan':
+            return
         s = db.Session()
         t_symbols_analyze = s.query(db.t_symbols_analyze).filter(
             db.t_symbols_analyze.f_ex_id == str(self.ex_id),
@@ -119,11 +121,34 @@ class analyze(object):
             db.t_symbols_analyze.f_timeframe == int(self.timeframe)
             ).first()
         if t_symbols_analyze is None:
-            logger.debug(self.to_string() + "update_db() t_symbols_analyze is None  ")
+            #logger.debug(self.to_string() + "update_db() t_symbols_analyze is None  ")
             t_symbols_analyze = db.t_symbols_analyze(
                 f_ex_id = self.ex_id,
                 f_symbol = self.symbol,
-                f_timeframe = int(self.timeframe)
+                f_timeframe = int(self.timeframe),
+                f_bid = 0.0,
+                f_ask = 0.0,
+                f_spread = 0.0,
+                f_bar_trend = 0,
+                f_volume_mean = 0.0,
+                f_volume = 0.0,
+                f_ma_period = 0,
+                f_ma_up = 0.0,
+                f_ma_low = 0.0,
+                f_ma_trend = 0,
+                f_channel_period = 0,
+                f_channel_up = 0.0,
+                f_channel_low = 0.0,
+                f_breakout_trend = 0,
+                f_breakout_ts = 0,
+                f_breakout_price = 0.0,
+                f_breakout_volume = 0.0,
+                f_breakout_volume_rate = 0.0,
+                f_breakout_price_highest = 0.0,
+                f_breakout_price_highest_ts = 0,
+                f_breakout_rate = 0.0,
+                f_breakout_rate_max = 0.0,
+                f_recommend = 0.0
             )
         #logger.debug(self.to_string() + "update_db() t_symbols_analyze  ")
         t_symbols_analyze.f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
@@ -136,6 +161,7 @@ class analyze(object):
         t_symbols_analyze.f_channel_period = self.strategy._channel_period
         t_symbols_analyze.f_channel_up = float(latest['max'])
         t_symbols_analyze.f_channel_low = float(latest['min'])
+
 
         date_ms = arrow.get(latest['date']).timestamp * 1000
         if t_symbols_analyze.f_breakout_trend == 0 or date_ms - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:

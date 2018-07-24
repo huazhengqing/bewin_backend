@@ -59,6 +59,7 @@ System_Strategy_Minutes_TimeFrame = {
 }
 System_Strategy_TimeFrame_Minutes = {
     '1h': 60,
+    '1d': 1440,
 }
 
 
