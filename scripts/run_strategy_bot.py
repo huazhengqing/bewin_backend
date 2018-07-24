@@ -20,5 +20,27 @@ logger = util.get_log(__name__)
 
 bot = strategy_bot()
 
-bot.datahub.run_get_topic("t_ohlcv", bot.process_topic_records)
+
+tasks = []
+tasks.append(asyncio.ensure_future(bot.datahub.run_get_topic("t_ohlcv", bot.topic_records_get)))
+for i in range(100):
+    tasks.append(asyncio.ensure_future(bot.topic_records_process()))
+
+
+
+
+pending = asyncio.Task.all_tasks()
+loop = asyncio.get_event_loop()
+try:
+    loop.run_until_complete(asyncio.gather(*pending))
+except:
+    logger.error(traceback.format_exc())
+    loop.close()
+finally:
+    logger.error(traceback.format_exc())
+    loop.close()
+
+
+
+
 

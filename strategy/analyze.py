@@ -57,7 +57,7 @@ class analyze(object):
             db.t_ohlcv.f_ex_id == self.ex_id,
             db.t_ohlcv.f_symbol == self.symbol,
             db.t_ohlcv.f_timeframe == self.timeframe
-            ).order_by(desc(db.t_ohlcv.f_ts)).limit(1000):
+            ).order_by(desc(db.t_ohlcv.f_ts)).limit(300):
             list_ohlcv.append([t_ohlcv.f_ts, t_ohlcv.f_o, t_ohlcv.f_h, t_ohlcv.f_l, t_ohlcv.f_c, t_ohlcv.f_v])
         logger.debug(self.to_string() + "load_ohlcv_from_db() end  len={0} ".format(len(list_ohlcv)))
         return list_ohlcv

@@ -240,7 +240,7 @@ class datahub():
 }
 ]
     '''
-    def run_get_topic(self, topic_name, func, *args, **kwargs):
+    async def run_get_topic(self, topic_name, func, *args, **kwargs):
         logger.debug(self.to_string() + "run_get_topic({0},{1})".format(self.project_name, topic_name))
         topic, shards = self.get_topic(topic_name)
         #logger.debug(self.to_string() + "run_get_topic({0},{1})shards={2}".format(self.project_name, topic_name, shards))
@@ -252,7 +252,7 @@ class datahub():
                     get_result = self.datahub.get_tuple_records(self.project_name, topic_name, shard.shard_id, topic.record_schema, cursor, self.get_limit_num)
                     if get_result.record_count > 0:
                         #logger.debug(self.to_string() + "run_get_topic({0},{1})get_result={2}".format(self.project_name, topic_name, get_result.records))
-                        func(get_result.records, *args, **kwargs)
+                        await func(get_result.records, *args, **kwargs)
                     else:
                         time.sleep(1)
                     cursor = get_result.next_cursor

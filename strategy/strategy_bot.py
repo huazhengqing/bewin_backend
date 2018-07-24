@@ -72,6 +72,10 @@ class strategy_bot(object):
         self.userid_system = 0
 
         self.datahub = datahub()
+        self.queue_task_record = asyncio.Queue()
+
+
+
         db.init()
         self.init_system_user_conifg()
         self.init_user_conifg()
@@ -276,18 +280,35 @@ class strategy_bot(object):
 
 
 
+
+
+    async def topic_records_get(self, records: TupleRecord):
+        for record in records:
+            await self.queue_task_record.put(record)
+
     '''
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
     record.values=('okex', 'NGC/BTC', 5, 1532270100000, 6.444e-05, 6.444e-05, 6.444e-05, 6.444e-05, 0.0, 1532270536)
     '''
-    def process_topic_records(self, records: TupleRecord):
-        for userid, user_config in self.user_config.items():
-            for record in records:
+    async def topic_records_process(self):
+        while True:
+            # 数据太多，处理不完
+            qsize = self.queue_task_record.qsize()
+            if qsize >= 100:
+                logger.warn(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
+                '''
+                for i in range(1000):
+                    self.queue_task_record.get()
+                    self.queue_task_record.task_done()
+                continue
+                '''
+            record = await self.queue_task_record.get()
+            for userid, user_config in self.user_config.items():
                 ex_id = record.values[0]
                 symbol = record.values[1]
                 tf = record.values[2]
                 ohlcv = [record.values[3], record.values[4], record.values[5], record.values[6], record.values[7], record.values[8]]
-                #logger.debug(self.to_string() + "process_topic_records(){0},{1}".format(userid, record.values))
+                #logger.debug(self.to_string() + "topic_records_process(){0},{1}".format(userid, record.values))
                 try:
                     self.process_position(userid, ex_id, symbol, tf, [ohlcv])
                 except:
@@ -299,6 +320,9 @@ class strategy_bot(object):
                         self.process_strategy_user(userid, ex_id, symbol, tf, [ohlcv])
                 except:
                     logger.error(traceback.format_exc())
+                
+
+
 
     # ['f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v']
     def process_position(self, userid, ex_id, symbol, tf, ohlcv_list):
