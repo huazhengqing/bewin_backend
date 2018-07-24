@@ -29,107 +29,88 @@ logger = util.get_log(__name__)
 
 
 
-class fetch_exchange(datahub):
+class fetch_base(datahub):
+    __ex_symbol_fee = util.nesteddict()
+    __symbol_ex_ticker = util.nesteddict()
+    __queue_task_spread = asyncio.Queue()
     def __init__(self):
-        super(fetch_exchange, self).__init__()
+        super(fetch_base, self).__init__()
         self.exchanges = dict()
-        self.symbol_ex_ticker = dict()
-        self.queue_task_spread = asyncio.Queue()
         #self.executor_max_works = 5
         #self.executor = ThreadPoolExecutor(self.executor_max_works)
-        self.init_exchanges()
-        db.init()
+
+    def init_exchange(self, id):
+        if id in ccxt.exchanges:
+            if self.exchanges.get(id) is None:
+                self.exchanges[id] = exchange(id)
+                t_markets = db.Session().query(db.t_markets).filter(db.t_markets.f_ex_id == id).all()
+                for t_market in t_markets:
+                    fetch_base.__ex_symbol_fee[t_market.f_ex_id][t_market.f_symbol] = t_market.f_fee_taker
 
     def init_exchanges(self):
         for id in ccxt.exchanges:
-            if self.exchanges.get(id) is None:
-                self.exchanges[id] = exchange(id)
-    
+            self.init_exchange(id)
+
     async def close(self):
         for ex in self.exchanges.values():
             await ex.close()
 
-
-    '''
-    ['f_ex_id', 'f_ex_name', 'f_countries', 'f_url_www', 'f_url_logo', 'f_url_referral', 'f_url_api', 'f_url_doc', 'f_url_fees', 'f_timeframes', 'f_ts', 'f_ts_update']
-    '''
-    async def fetch_exchanges(self, ex_id, topic, shards):
-        self.init_exchanges()
-        records = []
-        i = 0
-        for id, ex in self.exchanges.items():
-            logger.debug(self.to_string() + "fetch_exchanges({0})".format(id))
+    async def fetch_markets_to_db(self, ids = []):
+        if len(ids) <= 0:
+            ids = ccxt.exchanges
+        for id in ids:
+            logger.debug(self.to_string() + "fetch_markets_to_db({0})".format(id))
+            ex = exchange(id)
             try:
+                logger.debug(self.to_string() + "fetch_markets_to_db({0}) load_markets()".format(id))
                 await ex.load_markets()
             except Exception:
                 logger.warn(traceback.format_exc())
-                logger.warn(self.to_string() + "fetch_exchanges({0})".format(id))
+                logger.warn(self.to_string() + "fetch_exchanges({0}) Exception ".format(id))
                 continue
-            f_ex_id = id
-            f_ex_name = self.exchanges[ex_id].ex.name
-            f_countries = json.dumps(self.exchanges[ex_id].ex.countries)
+            t_exchanges = db.t_exchanges(
+                f_ex_id = id,
+                f_ex_name = ex.ex.name,
+                #f_countries = json.dumps(ex.ex.countries),
+                #f_url_www = ex.ex.urls['www'] if ex.ex.urls.get('www') is not None else '',
+                #f_url_logo = ex.ex.urls['logo'] if ex.ex.urls.get('logo') is not None else '',
+                #f_url_referral = ex.ex.urls['referral'] if ex.ex.urls.get('referral') is not None else '',
+                #f_url_api = ex.ex.urls['api'] if ex.ex.urls.get('api') is not None else '',
+                #f_url_doc = ex.ex.urls['doc'] if ex.ex.urls.get('doc') is not None else '',
+                #f_url_fees = json.dumps(ex.ex.urls['fees']) if ex.ex.urls.get('fees') is not None else '',
+                f_timeframes = json.dumps(ex.ex.timeframes) if ex.ex.has['fetchOHLCV'] is True else ''
+            )
+            logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_exchanges()".format(id))
+            db.Session().merge(t_exchanges)
 
-            f_url_www = json.dumps(self.exchanges[ex_id].ex.urls['www'])
-            f_url_logo = json.dumps(self.exchanges[ex_id].ex.urls['logo'])
-            f_url_referral = json.dumps(self.exchanges[ex_id].ex.urls['referral'])
-            f_url_api = json.dumps(self.exchanges[ex_id].ex.urls['api'])
-            f_url_doc = json.dumps(self.exchanges[ex_id].ex.urls['doc'])
-            f_url_fees = json.dumps(self.exchanges[ex_id].ex.urls['fees'])
-
-            f_timeframes = ''
+            for symbol, v in ex.ex.markets.items():
+                _active = 0
+                if v.get('active') is not None:
+                    if v['active']:
+                        _active = 1
+                    else:
+                        _active = 0
+                t_markets = db.t_markets(
+                    f_ex_id = id,
+                    f_symbol = symbol,
+                    f_base = v['base'],
+                    f_quote = v['quote'],
+                    f_active = _active,
+                    f_url = "",
+                    f_fee_maker = v['maker'] if v.get('maker') else 0,
+                    f_fee_taker = v['taker'] if v.get('taker') else 0,
+                    f_precision_amount = v['precision']['amount'] if v['precision'].get('amount') else 0,
+                    f_precision_price = v['precision']['price'] if v['precision'].get('price') else 0,
+                    f_limits_amount_min = v['limits']['amount']['min'] if v['limits'].get('amount') else 0,
+                    f_limits_price_min = v['limits']['price']['min'] if v['limits'].get('price') else 0,
+                    #f_ts_create = v['info']['Created'] if (v.get('info') and v['info'].get('Created')) else 0,
+                )
+                logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_markets({1})".format(id, symbol))
+                db.Session().merge(t_markets)
             try:
-                if self.exchanges[ex_id].ex.timeframes is not None:
-                    f_timeframes = json.dumps(self.exchanges[ex_id].ex.timeframes)
+                await ex.close()
             except Exception:
-                logger.info(traceback.format_exc())
-
-            f_ts = arrow.utcnow().timestamp * 1000
-            f_ts_update = arrow.utcnow().timestamp
-            record = TupleRecord(schema=topic.record_schema)
-            record.values = [f_ex_id, f_ex_name, f_countries, f_url_www, f_url_logo, f_url_referral, f_url_api, f_url_doc, f_url_fees, f_timeframes, f_ts, f_ts_update]
-            record.shard_id = shards[i % len(shards)].shard_id
-            records.append(record)
-            i = i + 1
-        logger.debug(self.to_string() + "fetch_exchanges({0}) records count={1}".format(id, len(records)))
-        return records
-
-    '''
-    ['f_ex_id', 'f_symbol', 'f_base', 'f_quote', 'f_active', 'f_url', 'f_fee_maker', 'f_fee_taker', 'f_precision_amount', 'f_precision_price', 'f_limits_amount_min', 'f_limits_price_min', 'f_ts_create', 'f_ts', 'f_ts_update']
-    '''
-    async def fetch_markets(self, ex_id, topic, shards):
-        self.init_exchanges()
-        if self.exchanges.get(ex_id) is None:
-            logger.warn(self.to_string() + "fetch_markets({0}) no ex".format(ex_id))
-            return []
-        if self.exchanges[ex_id].ex.has['fetchMarkets'] is False:
-            logger.warn(self.to_string() + "fetch_markets({0}) NOT has interface".format(ex_id))
-            return []
-        logger.debug(self.to_string() + "fetch_markets({0})".format(ex_id))
-        await self.exchanges[ex_id].load_markets()
-        records = []
-        i = 0
-        f_ex_id = ex_id
-        for symbol in self.exchanges[ex_id].ex.symbols:
-            f_symbol = symbol
-            f_base = self.exchanges[ex_id].ex.markets[symbol]['base']
-            f_quote = self.exchanges[ex_id].ex.markets[symbol]['quote']
-            f_active = self.exchanges[ex_id].ex.markets[symbol]['active'] and 1 or 0
-            f_url = ""
-            f_fee_maker = self.exchanges[ex_id].ex.markets[symbol]['maker']
-            f_fee_taker = self.exchanges[ex_id].ex.markets[symbol]['taker']
-            f_precision_amount = self.exchanges[ex_id].ex.markets[symbol]['precision']['amount']
-            f_precision_price = self.exchanges[ex_id].ex.markets[symbol]['precision']['price']
-            f_limits_amount_min = self.exchanges[ex_id].ex.markets[symbol]['limits']['amount']['min']
-            f_limits_price_min = self.exchanges[ex_id].ex.markets[symbol]['limits']['price']['min']
-            f_ts_create = self.exchanges[ex_id].ex.markets[symbol]['info']['Created']
-            f_ts = arrow.utcnow().timestamp * 1000
-            f_ts_update = arrow.utcnow().timestamp
-            record = TupleRecord(schema=topic.record_schema)
-            record.values = [f_ex_id, f_symbol, f_base, f_quote, f_active, f_url, f_fee_maker, f_fee_taker, f_precision_amount, f_precision_price, f_limits_amount_min, f_limits_price_min, f_ts_create, f_ts, f_ts_update]
-            record.shard_id = shards[i % len(shards)].shard_id
-            records.append(record)
-            i = i + 1
-        return records
+                pass
 
     '''
     ['f_ex_id', 'f_symbol', 'f_ts', 'f_bid', 'f_bid_volume', 'f_ask', 'f_ask_volume', 'f_vwap', 'f_open', 'f_high', 'f_low', 'f_close', 'f_last', 'f_previous_close', 'f_change', 'f_percentage', 'f_average', 'f_base_volume', 'f_quote_volume', 'f_ts_update']
@@ -191,25 +172,16 @@ class fetch_exchange(datahub):
             record.shard_id = shards[i % len(shards)].shard_id
             records.append(record)
             i = i + 1
-            if self.symbol_ex_ticker.get(f_symbol) is None:
-                self.symbol_ex_ticker[f_symbol] = {
-                    f_ex_id:{
-                        "f_ts": f_ts,
-                        "f_bid": f_bid,
-                        "f_ask": f_ask,
-                    }
-                }
-            else:
-                self.symbol_ex_ticker[f_symbol][f_ex_id] = {
-                    "f_ts": f_ts,
-                    "f_bid": f_bid,
-                    "f_ask": f_ask,
-                }
-            await self.queue_task_spread.put(v)
+            fetch_base.__symbol_ex_ticker[f_symbol][f_ex_id] = {
+                "f_ts": f_ts,
+                "f_bid": f_bid,
+                "f_ask": f_ask,
+            }
+            await fetch_base.__queue_task_spread.put(v)
         return records
 
     async def fetch_ticker(self, ex_id, topic, shards, symbol):
-        self.init_exchanges()
+        self.init_exchange(ex_id)
         if self.exchanges.get(ex_id) is None:
             logger.warn(self.to_string() + "fetch_ticker({0}) no ex".format(ex_id))
             return []
@@ -241,21 +213,12 @@ class fetch_exchange(datahub):
         record.values = v
         i = random.randint(1,100) % len(shards)
         record.shard_id = shards[i].shard_id
-        if self.symbol_ex_ticker.get(f_symbol) is None:
-            self.symbol_ex_ticker[f_symbol] = {
-                f_ex_id:{
-                    "f_ts": f_ts,
-                    "f_bid": f_bid,
-                    "f_ask": f_ask,
-                }
-            }
-        else:
-            self.symbol_ex_ticker[f_symbol][f_ex_id] = {
-                "f_ts": f_ts,
-                "f_bid": f_bid,
-                "f_ask": f_ask,
-            }
-        await self.queue_task_spread.put(v)
+        fetch_base.__symbol_ex_ticker[f_symbol][f_ex_id] = {
+            "f_ts": f_ts,
+            "f_bid": f_bid,
+            "f_ask": f_ask,
+        }
+        await fetch_base.__queue_task_spread.put(v)
         records.append(record)
         return records
 
@@ -269,25 +232,25 @@ class fetch_exchange(datahub):
         while True:
             try:
                 # 数据太多，处理不完
-                qsize = self.queue_task_spread.qsize()
-                if qsize >= 5000:
+                qsize = fetch_base.__queue_task_spread.qsize()
+                if qsize >= 100:
                     logger.warn(self.to_string() + "run_calc_spread() qsize={0}".format(qsize))
                     '''
                     for i in range(10000):
-                        self.queue_task_spread.get()
-                        self.queue_task_spread.task_done()
+                        fetch_base.__queue_task_spread.get()
+                        fetch_base.__queue_task_spread.task_done()
                     continue
                     '''
                 # [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
-                task_record = await self.queue_task_spread.get()
+                task_record = await fetch_base.__queue_task_spread.get()
                 symbol = task_record[1]
                 ex1 = task_record[0]
                 ex1_name = self.exchanges[ex1].ex.name
                 ex1_bid = task_record[3]
                 ex1_ask = task_record[5]
                 ex1_ts = task_record[2]
-                ex1_fee = self.exchanges[ex1].ex.markets[symbol]['taker'] if self.exchanges[ex1].ex.markets is not None and self.exchanges[ex1].ex.markets.get(symbol) is not None and self.exchanges[ex1].ex.markets[symbol].get('taker') is not None else 0.0
-                record2s = self.symbol_ex_ticker[symbol] if self.symbol_ex_ticker.get(symbol) is not None else {}
+                ex1_fee = fetch_base.__ex_symbol_fee[ex1][symbol] if fetch_base.__ex_symbol_fee[ex1][symbol] else 0
+                record2s = fetch_base.__symbol_ex_ticker[symbol] if fetch_base.__symbol_ex_ticker[symbol] else {}
                 records = []
                 for ex2, v in record2s.items():
                     if ex2 == ex1:
@@ -296,7 +259,7 @@ class fetch_exchange(datahub):
                     ex2_bid = v["f_bid"]
                     ex2_ask = v["f_ask"]
                     ex2_ts = v["f_ts"]
-                    ex2_fee = self.exchanges[ex2].ex.markets[symbol]['taker'] if self.exchanges[ex2].ex.markets is not None and self.exchanges[ex2].ex.markets.get(symbol) is not None and self.exchanges[ex2].ex.markets[symbol].get('taker') is not None else 0.0
+                    ex2_fee = fetch_base.__ex_symbol_fee[ex2][symbol] if fetch_base.__ex_symbol_fee[ex2][symbol] else 0
                     if abs(ex1_ts - ex2_ts) > 30000:
                         logger.info(self.to_string() + "run_calc_spread() abs(ex1_ts - ex2_ts)={0}".format(abs(ex1_ts - ex2_ts)))
                         continue
@@ -341,8 +304,8 @@ class fetch_exchange(datahub):
     '''
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
     '''
-    async def run_fetch_ohlcv(self, ex_id, topic_name, symbols, timeframe_str, since_ms):
-        self.init_exchanges()
+    async def run_fetch_ohlcv(self, ex_id, topic_name, symbols, timeframe_str, since_ms, split_i, max_split_count):
+        self.init_exchange(ex_id)
         if self.exchanges.get(ex_id) is None:
             logger.warn(self.to_string() + "run_fetch_ohlcv({0}) no ex".format(ex_id))
             return
@@ -350,6 +313,7 @@ class fetch_exchange(datahub):
             logger.warn(self.to_string() + "run_fetch_ohlcv({0}) NOT has interface".format(ex_id))
             return
         logger.debug(self.to_string() + "run_fetch_ohlcv({0})".format(ex_id))
+        '''
         try:
             await self.exchanges[ex_id].load_markets()
         except:
@@ -357,15 +321,21 @@ class fetch_exchange(datahub):
         if self.exchanges[ex_id].ex.timeframes is None or timeframe_str not in self.exchanges[ex_id].ex.timeframes:
             logger.info(self.to_string() + "run_fetch_ohlcv({0}) NOT has timeframe={1}".format(ex_id, timeframe_str))
             return
+        '''
         if symbols is None or len(symbols) <= 0:
-            symbols = self.exchanges[ex_id].ex.symbols
+            symbols = [k for k in fetch_base.__ex_symbol_fee[ex_id].keys()]
         topic, shards = self.get_topic(topic_name)
         f_ex_id = ex_id
         f_timeframe = util.TimeFrame_Minutes[timeframe_str]
         while True:
             ts_start = arrow.utcnow().shift(minutes=-f_timeframe).timestamp * 1000
             i = 0
+            s = 0
             for symbol in symbols:
+                if s % max_split_count != split_i:
+                    s = s + 1
+                    continue
+                s = s + 1
                 f_symbol = symbol
                 try:
                     data = await self.exchanges[ex_id].fetch_ohlcv(symbol, timeframe_str, since_ms)
@@ -390,7 +360,6 @@ class fetch_exchange(datahub):
                 logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2},{3})len(records) = {4}".format(ex_id, topic_name, symbol, timeframe_str, len(records)))
                 self.pub_topic(topic_name, records)
             since_ms = ts_start
-            #since_ms = None
-
+            
 
 

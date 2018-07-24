@@ -4,6 +4,7 @@ import math
 import asyncio
 import logging
 import traceback
+from collections import defaultdict
 import ccxt.async_support as ccxt
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
@@ -97,6 +98,10 @@ def retry(f):
 
 
 
+def nesteddict(): 
+  return defaultdict(nesteddict)
+
+
 def symbol_2_string(symbol):
     base = symbol.split('/')[0]       # BTC
     quote = symbol.split('/')[1]       # USD
@@ -133,6 +138,7 @@ def thread_loop(executor, func, *args, **kwargs):
         logger.error(traceback.format_exc())
     loop.close()
     
+
 
 
 

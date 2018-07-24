@@ -83,8 +83,8 @@ class datahub():
         self.cursor_type = CursorType.LATEST
         self.get_limit_num = 30
 
-        self.create_project()
-        self.create_all_topic()
+        #self.create_project()
+        #self.create_all_topic()
 
     def to_string(self):
         return "datahub[{0}] ".format(self.project_name)

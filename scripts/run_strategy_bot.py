@@ -30,11 +30,11 @@ thread_fetch.start()
 
 
 tasks = []
-#executor = ThreadPoolExecutor()
+executor = ThreadPoolExecutor()
 #tasks.append(asyncio.ensure_future(bot.datahub.run_get_topic("t_ohlcv", bot.topic_records_get)))
-for i in range(10):
-    tasks.append(asyncio.ensure_future(bot.topic_records_process()))
-    #tasks.append(asyncio.ensure_future(asyncio.get_event_loop().run_in_executor(executor, util.sub_loop, bot.topic_records_process)))
+for i in range(100):
+    #tasks.append(asyncio.ensure_future(bot.topic_records_process()))
+    tasks.append(asyncio.ensure_future(asyncio.get_event_loop().run_in_executor(executor, util.sub_loop, bot.topic_records_process)))
 
 
 

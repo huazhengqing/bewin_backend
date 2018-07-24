@@ -6,6 +6,8 @@ import arrow
 import logging
 import traceback
 import configparser
+from concurrent.futures import ThreadPoolExecutor
+#from tornado.concurrent import run_on_executor
 from datetime import datetime
 from decimal import Decimal, getcontext
 from typing import Any, Dict, Optional
@@ -20,13 +22,13 @@ sys.path.append(dir_root)
 import conf.conf_aliyun
 from conf.conf_aliyun import conf_aliyun_mysql
 import conf
+import db
 import util
 logger = util.get_log(__name__)
 
-_DECL_BASE: Any = declarative_base()
 
-class OperationalException(BaseException):
-    pass
+_DECL_BASE: Any = declarative_base()
+Session = None
 
 
 def init() -> None:
@@ -39,14 +41,22 @@ def init() -> None:
         port = conf_aliyun_mysql['product_db_port']
         user = conf_aliyun_mysql['product_user']
         password = conf_aliyun_mysql['product_password']
-    db = conf_aliyun_mysql['db']
+    db_name = conf_aliyun_mysql['db']
     charset = conf_aliyun_mysql['charset']
-    db_url = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}?charset={5}".format(user, password, host, port, db, charset)
+    db_url = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}?charset={5}".format(user, password, host, port, db_name, charset)
     logger.info(db_url)
-    engine = create_engine(db_url, echo = False)
+    engine = create_engine(
+        db_url, 
+        #max_overflow=0,  # 超过连接池大小外最多创建的连接
+        #pool_size=5,  # 连接池大小
+        #pool_timeout=30,  # 池中没有线程最多等待的时间，否则报错
+        #pool_recycle=-1, # 多久之后对线程池中的线程进行一次连接的回收（重置）
+        echo = False
+    )
+    session_factory = sessionmaker(bind=engine, autoflush=True, autocommit=True)
+    db.Session = scoped_session(session_factory)
 
-    session = scoped_session(sessionmaker(bind=engine, autoflush=True, autocommit=True))
-
+'''
     t_exchanges.session = session()
     t_exchanges.query = session.query_property()
 
@@ -68,10 +78,7 @@ def init() -> None:
     t_user_balances.session = session()
     t_user_balances.query = session.query_property()
 
-    '''
-    t_user_balances_dryrun.session = session()
-    t_user_balances_dryrun.query = session.query_property()
-    '''
+
 
     t_user_config.session = session()
     t_user_config.query = session.query_property()
@@ -81,8 +88,9 @@ def init() -> None:
 
     t_user_exchange_symbol.session = session()
     t_user_exchange_symbol.query = session.query_property()
+'''
 
-
+init()
 
 def has_column(columns, searchname: str) -> bool:
     return len(list(filter(lambda x: x["name"] == searchname, columns))) == 1
@@ -115,17 +123,16 @@ class t_exchanges(_DECL_BASE):
     __tablename__ = 't_exchanges'
     f_ex_id = Column(String, nullable=False, primary_key=True)
     f_ex_name = Column(String, nullable=False)
-    f_countries = Column(String, nullable=False)
-    f_url_www = Column(String, nullable=False)
-    f_url_logo = Column(String, nullable=False)
-    f_url_referral = Column(String, nullable=False)
-    f_url_api = Column(String, nullable=False)
-    f_url_doc = Column(String, nullable=False)
-    f_url_fees = Column(String, nullable=False)
-    f_ts = Column(Integer, nullable=False)
-    f_timeframes = Column(String, nullable=False)
-    f_ts = Column(Integer, nullable=False)
-    f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    f_countries = Column(String, nullable=False, default='')
+    f_url_www = Column(String, nullable=False, default='')
+    f_url_logo = Column(String, nullable=False, default='')
+    f_url_referral = Column(String, nullable=False, default='')
+    f_url_api = Column(String, nullable=False, default='')
+    f_url_doc = Column(String, nullable=False, default='')
+    f_url_fees = Column(String, nullable=False, default='')
+    f_timeframes = Column(String, nullable=False, default='')
+    #f_ts = Column(Integer, nullable=False)
+    #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
 
 
@@ -154,19 +161,19 @@ class t_markets(_DECL_BASE):
     __tablename__ = 't_markets'
     f_ex_id = Column(String, nullable=False, primary_key=True)
     f_symbol = Column(String, nullable=False, primary_key=True)
-    f_base = Column(String, nullable=False)
-    f_quote = Column(String, nullable=False)
+    f_base = Column(String, nullable=False, default='')
+    f_quote = Column(String, nullable=False, default='')
     f_active = Column(Boolean, nullable=False)
-    f_url = Column(String, nullable=False)
-    f_fee_maker = Column(Float, nullable=False)
-    f_fee_taker = Column(Float, nullable=False)
-    f_precision_amount = Column(Integer, nullable=False)
-    f_precision_price = Column(Integer, nullable=False)
-    f_limits_amount_min = Column(Float, nullable=False)
-    f_limits_price_min = Column(Float, nullable=False)
-    f_ts_create = Column(Integer, nullable=False)
-    f_ts = Column(Integer, nullable=False)
-    f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    f_url = Column(String, nullable=False, default='')
+    f_fee_maker = Column(Float, nullable=False, default=0)
+    f_fee_taker = Column(Float, nullable=False, default=0)
+    f_precision_amount = Column(Integer, nullable=False, default=0)
+    f_precision_price = Column(Integer, nullable=False, default=0)
+    f_limits_amount_min = Column(Float, nullable=False, default=0)
+    f_limits_price_min = Column(Float, nullable=False, default=0)
+    f_ts_create = Column(Integer, nullable=False, default=0)
+    #f_ts = Column(Integer, nullable=False, default=datetime.utcnow)
+    #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
 
 
@@ -417,6 +424,8 @@ class t_user_balances(_DECL_BASE):
     f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
     def cleanup(self) -> None:
+        t_user_balances.session = db.Session()
+        t_user_balances.query = db.Session.query_property()
         t_user_balances.session.flush()
 
     def update(self, userid, ex_id, base, amount, quote = "BTC") -> None:
@@ -441,7 +450,6 @@ class t_user_balances(_DECL_BASE):
         if self.quote not in ["ETH", "BTC", "USDT", "USD"]:
             if self.f_base != self.quote:
                 self.f_symbol = self.f_base + "/" + self.f_quote
-        self.cleanup()
 
 
     def close(self, bid: float) -> None:

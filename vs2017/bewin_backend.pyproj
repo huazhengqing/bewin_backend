@@ -26,7 +26,7 @@
     <Compile Include="exchange\exchange_trade.py" />
     <Compile Include="exchange\__init__.py" />
     <Compile Include="func\func_python_spread\index.py" />
-    <Compile Include="scripts\fetch_exchange.py" />
+    <Compile Include="scripts\fetch_base.py" />
     <Compile Include="scripts\fetch_markets.py" />
     <Compile Include="scripts\fetch_ohlcv.py" />
     <Compile Include="scripts\fetch_tickers.py" />

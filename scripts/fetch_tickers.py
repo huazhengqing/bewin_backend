@@ -9,7 +9,7 @@ import requests
 requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
-from fetch_exchange import fetch_exchange
+from fetch_base import fetch_base
 import conf.conf_aliyun
 import conf
 logger = util.get_log(__name__)
@@ -20,7 +20,7 @@ if conf.dev_or_product == 2:
     ids = conf.product_ex_ids
 
 
-fetcher = fetch_exchange()
+fetcher = fetch_base()
 
 
 tasks = []

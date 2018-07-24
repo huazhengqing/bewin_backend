@@ -53,7 +53,8 @@ class analyze(object):
     def load_ohlcv_from_db(self):
         #logger.debug(self.to_string() + "load_ohlcv_from_db() start")
         list_ohlcv = []
-        for t_ohlcv in db.t_ohlcv.query.filter(
+        s = db.Session()
+        for t_ohlcv in s.query(db.t_ohlcv).filter(
             db.t_ohlcv.f_ex_id == self.ex_id,
             db.t_ohlcv.f_symbol == self.symbol,
             db.t_ohlcv.f_timeframe == self.timeframe
@@ -111,7 +112,8 @@ class analyze(object):
     def update_db(self):
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
-        t_symbols_analyze = db.t_symbols_analyze.query.filter(
+        s = db.Session()
+        t_symbols_analyze = s.query(db.t_symbols_analyze).filter(
             db.t_symbols_analyze.f_ex_id == str(self.ex_id),
             db.t_symbols_analyze.f_symbol == str(self.symbol),
             db.t_symbols_analyze.f_timeframe == int(self.timeframe)
@@ -163,8 +165,8 @@ class analyze(object):
                 t_symbols_analyze.f_breakout_price_highest = min(t_symbols_analyze.f_breakout_price_highest, t_symbols_analyze.f_channel_low)
                 t_symbols_analyze.f_breakout_price_highest_ts = date_ms
             t_symbols_analyze.f_breakout_rate_max = min(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
-        db.t_symbols_analyze.session.merge(t_symbols_analyze)
-        db.t_symbols_analyze.session.flush()
+        s.merge(t_symbols_analyze)
+        s.flush()
         logger.debug(self.to_string() + "update_db() t_symbols_analyze  flush  ")
 
         self.pub_topic(t_symbols_analyze)

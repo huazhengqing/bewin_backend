@@ -11,9 +11,10 @@ requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import util
-from fetch_exchange import fetch_exchange
+from fetch_base import fetch_base
 import conf.conf_aliyun
 import conf
+import db
 logger = util.get_log(__name__)
 
 
@@ -30,16 +31,20 @@ if conf.dev_or_product == 2:
 
 symbols = []
 
-since_ms = arrow.utcnow().shift(days=-180).timestamp * 1000
-#since_ms = arrow.utcnow().shift(days=-1).timestamp * 1000
+#since_ms = arrow.utcnow().shift(days=-180).timestamp * 1000
+since_ms = arrow.utcnow().shift(days=-1).timestamp * 1000
 
-fetcher = fetch_exchange()
+max_split_count = 10
+fetcher = dict()
+for i in range(max_split_count):
+    fetcher[i] = fetch_base()
 
 tasks = []
-for id in ids:
-    #for tf in util.TimeFrame_Minutes.keys():
-    for tf in util.System_Strategy_TimeFrame_Minutes.keys():
-        tasks.append(asyncio.ensure_future(fetcher.run_fetch_ohlcv(id, "t_ohlcv", symbols, tf, since_ms)))
+for i in range(max_split_count):
+    for id in ids:
+        #for tf in util.TimeFrame_Minutes.keys():
+        for tf in util.System_Strategy_TimeFrame_Minutes.keys():
+            tasks.append(asyncio.ensure_future(fetcher[i].run_fetch_ohlcv(id, "t_ohlcv", symbols, tf, since_ms, i, max_split_count)))
 
 
 
