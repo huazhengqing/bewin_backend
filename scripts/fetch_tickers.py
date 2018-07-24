@@ -12,6 +12,7 @@ sys.path.append(dir_root)
 from fetch_base import fetch_base
 import conf.conf_aliyun
 import conf
+import util
 logger = util.get_log(__name__)
 
 

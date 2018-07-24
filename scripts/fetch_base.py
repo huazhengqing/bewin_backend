@@ -38,6 +38,7 @@ class fetch_base(datahub):
         self.exchanges = dict()
         #self.executor_max_works = 5
         #self.executor = ThreadPoolExecutor(self.executor_max_works)
+        
 
     def init_exchange(self, id):
         if id in ccxt.exchanges:
@@ -116,7 +117,7 @@ class fetch_base(datahub):
     ['f_ex_id', 'f_symbol', 'f_ts', 'f_bid', 'f_bid_volume', 'f_ask', 'f_ask_volume', 'f_vwap', 'f_open', 'f_high', 'f_low', 'f_close', 'f_last', 'f_previous_close', 'f_change', 'f_percentage', 'f_average', 'f_base_volume', 'f_quote_volume', 'f_ts_update']
     '''
     async def fetch_tickers(self, ex_id, topic, shards):
-        self.init_exchanges()
+        self.init_exchange(ex_id)
         if self.exchanges.get(ex_id) is None:
             logger.warn(self.to_string() + "fetch_tickers({0}) no ex".format(ex_id))
             return []

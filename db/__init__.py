@@ -32,6 +32,8 @@ Session = None
 
 
 def init() -> None:
+    if Session is not None:
+        return
     host = conf_aliyun_mysql['dev_db_host']
     port = conf_aliyun_mysql['dev_db_port']
     user = conf_aliyun_mysql['dev_user']
@@ -89,8 +91,8 @@ def init() -> None:
     t_user_exchange_symbol.session = session()
     t_user_exchange_symbol.query = session.query_property()
 '''
-
 init()
+
 
 def has_column(columns, searchname: str) -> bool:
     return len(list(filter(lambda x: x["name"] == searchname, columns))) == 1

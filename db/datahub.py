@@ -16,9 +16,7 @@ sys.path.append(dir_root)
 import conf.conf_aliyun
 import conf
 import util
-import db
 from conf.conf_aliyun import conf_aliyun_datahub
-from exchange.exchange import exchange
 logger = util.get_log(__name__)
 
 
