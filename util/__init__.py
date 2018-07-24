@@ -1,7 +1,9 @@
 import os
 import sys
 import math
+import asyncio
 import logging
+import traceback
 import ccxt.async_support as ccxt
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
@@ -110,10 +112,27 @@ def downRound(qty, decimal_places):
 
 
 
+def sub_loop(func, *args, **kwargs):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    tasks = []
+    tasks.append(asyncio.ensure_future(func(*args, **kwargs)))
+    try:
+        loop.run_until_complete(asyncio.gather(*tasks))
+    except:
+        logger.error(traceback.format_exc())
+    loop.close()
 
 
-
-
+def thread_loop(executor, func, *args, **kwargs):
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        loop.run_until_complete(loop.run_in_executor(executor, func, *args, **kwargs))
+    except:
+        logger.error(traceback.format_exc())
+    loop.close()
+    
 
 
 

@@ -4,6 +4,7 @@ import copy
 import logging
 import asyncio
 import time
+import queue
 from collections import defaultdict
 import traceback
 from datetime import datetime
@@ -72,9 +73,8 @@ class strategy_bot(object):
         self.userid_system = 0
 
         self.datahub = datahub()
-        self.queue_task_record = asyncio.Queue()
-
-
+        self.queue_thread = queue.Queue()
+        #self.queue_async = asyncio.Queue()
 
         db.init()
         self.init_system_user_conifg()
@@ -84,6 +84,7 @@ class strategy_bot(object):
 
         self.load_user_strategy()
         self.load_user_balances()
+        
 
 
     async def init_all_data(self):
@@ -282,10 +283,11 @@ class strategy_bot(object):
 
 
 
-    async def topic_records_get(self, records: TupleRecord):
-        logger.debug(self.to_string() + "topic_records_get() len(records)={0}".format(len(records)))
+    def topic_records_get(self, records: TupleRecord):
+        #logger.debug(self.to_string() + "topic_records_get() len(records)={0}".format(len(records)))
         for record in records:
-            await self.queue_task_record.put(record)
+            self.queue_thread.put(record)
+        #logger.debug(self.to_string() + "topic_records_get() qsize={0}".format(self.queue_thread.qsize()))
 
     '''
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
@@ -294,18 +296,19 @@ class strategy_bot(object):
     async def topic_records_process(self):
         #logger.debug(self.to_string() + "topic_records_process()")
         while True:
-            qsize = self.queue_task_record.qsize()
-            logger.debug(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
+            qsize = self.queue_thread.qsize()
+            #logger.debug(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
             # 数据太多，处理不完
             if qsize >= 100:
                 logger.warn(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
                 '''
                 for i in range(1000):
-                    self.queue_task_record.get()
-                    self.queue_task_record.task_done()
+                    self.queue_thread.get()
+                    self.queue_thread.task_done()
                 continue
                 '''
-            record = await self.queue_task_record.get()
+            record = self.queue_thread.get()
+            #logger.debug(self.to_string() + "topic_records_process() record={0}".format(record))
             for userid, user_config in self.user_config.items():
                 ex_id = record.values[0]
                 symbol = record.values[1]
