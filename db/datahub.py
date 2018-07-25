@@ -164,7 +164,7 @@ class datahub():
         while True:
             try:
                 records = await func(ex_id, topic, shards, *args, **kwargs)
-                logger.debug(self.to_string() + "run_pub_topic({0}, {1}) len(records) = {2}".format(ex_id, topic_name, len(records)))
+                #logger.debug(self.to_string() + "run_pub_topic({0}, {1}) len(records) = {2}".format(ex_id, topic_name, len(records)))
                 self.pub_topic(topic_name, records)
             except DatahubException:
                 logger.error(traceback.format_exc())
@@ -177,22 +177,22 @@ class datahub():
                 await asyncio.sleep(10)
             except ccxt.AuthenticationError:
                 logger.error(traceback.format_exc())
-                #await asyncio.sleep(10)
+                await asyncio.sleep(10)
             except ccxt.ExchangeNotAvailable:
                 logger.error(traceback.format_exc())
-                #await asyncio.sleep(10)
+                await asyncio.sleep(10)
             except ccxt.ExchangeError:
                 logger.error(traceback.format_exc())
-                #await asyncio.sleep(10)
+                await asyncio.sleep(10)
             except ccxt.NetworkError:
                 logger.error(traceback.format_exc())
-                #await asyncio.sleep(10)
+                await asyncio.sleep(10)
             except Exception:
                 logger.info(traceback.format_exc())
-                #await asyncio.sleep(10)
+                await asyncio.sleep(10)
             except:
                 logger.error(traceback.format_exc())
-                #await asyncio.sleep(10)
+                await asyncio.sleep(10)
 
     '''
     get_result=

@@ -120,12 +120,22 @@ class fetch_base():
             except Exception:
                 pass
 
+    async def run_fetch_markets_to_db(self, ids = []):
+        while True:
+            await self.fetch_markets_to_db(ids)
+            await asyncio.sleep(12*60*60)
+            
+
+
+
+
+
     '''
     ['f_ex_id', 'f_symbol', 'f_ts', 'f_bid', 'f_bid_volume', 'f_ask', 'f_ask_volume', 'f_vwap', 'f_open', 'f_high', 'f_low', 'f_close', 'f_last', 'f_previous_close', 'f_change', 'f_percentage', 'f_average', 'f_base_volume', 'f_quote_volume', 'f_ts_update']
     '''
     async def fetch_tickers(self, ex_id, topic, shards):
         self.init_exchange(ex_id)
-        logger.debug(self.to_string() + "fetch_tickers({0})".format(ex_id))
+        #logger.debug(self.to_string() + "fetch_tickers({0})".format(ex_id))
         records = []
         if not self.exchanges[ex_id].has_api('fetchTickers'):
             for symbol in fetch_base.__ex_symbol_fee[ex_id].keys():
@@ -146,12 +156,11 @@ class fetch_base():
                     logger.error(traceback.format_exc())
                     logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
                     await asyncio.sleep(10)
+            logger.debug(self.to_string() + "fetch_tickers({0}) len(records)={1}".format(ex_id, len(records)))
             return records
         tickers = await self.exchanges[ex_id].ex.fetch_tickers()
         i = 0
-        f_ex_id = ex_id
         for symbol, ticker in tickers.items():
-            f_symbol = symbol
             f_ts = ticker['timestamp'] and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
             f_bid = ticker['bid'] and ticker['bid'] or 0
             f_bid_volume = ticker['bidVolume'] and ticker['bidVolume'] or 0
@@ -170,23 +179,24 @@ class fetch_base():
             f_base_volume = ticker['baseVolume'] and ticker['baseVolume'] or 0
             f_quote_volume = ticker['quoteVolume'] and ticker['quoteVolume'] or 0
             f_ts_update = arrow.utcnow().timestamp
-            v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
+            v = [ex_id, symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
             record = TupleRecord(schema=topic.record_schema)
             record.values = v
             record.shard_id = shards[i % len(shards)].shard_id
             records.append(record)
             i = i + 1
-            fetch_base.__symbol_ex_ticker[f_symbol][f_ex_id] = {
+            fetch_base.__symbol_ex_ticker[symbol][ex_id] = {
                 "f_ts": f_ts,
                 "f_bid": f_bid,
                 "f_ask": f_ask,
             }
             await fetch_base.__queue_task_spread.put(v)
+            logger.debug(self.to_string() + "fetch_tickers({0}) len(records)={1}".format(ex_id, len(records)))
         return records
 
     async def fetch_ticker(self, ex_id, topic, shards, symbol):
         self.init_exchange(ex_id)
-        logger.debug(self.to_string() + "fetch_ticker({0})".format(ex_id))
+        #logger.debug(self.to_string() + "fetch_ticker({0})".format(ex_id))
         records = []
         ticker = await self.exchanges[ex_id].ex.fetch_ticker(symbol)
         f_ts = ticker['timestamp'] and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
