@@ -1,4 +1,3 @@
-#!/usr/bin/python
 import io
 import os
 import sys
@@ -9,8 +8,8 @@ import requests
 requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+from db.datahub import g_datahub
 from fetch_base import fetch_base
-import conf.conf_aliyun
 import conf
 import util
 logger = util.get_log(__name__)
@@ -26,8 +25,9 @@ fetcher = fetch_base()
 
 tasks = []
 for id in ids:
-    tasks.append(asyncio.ensure_future(fetch_base.__datahub.run_pub_topic(id, "t_ticker", fetcher.fetch_tickers)))
-tasks.append(asyncio.ensure_future(fetcher.run_calc_spread()))
+    tasks.append(asyncio.ensure_future(g_datahub.run_pub_topic(id, "t_ticker", fetcher.fetch_tickers)))
+
+#tasks.append(asyncio.ensure_future(fetcher.run_calc_spread()))
 
 
 

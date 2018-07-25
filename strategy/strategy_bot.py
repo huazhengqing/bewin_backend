@@ -24,18 +24,14 @@ from strategy.analyze import analyze
 from strategy.strategy_breakout import strategy_breakout
 import db
 from exchange.exchange_trade import exchange_trade
-from db.datahub import datahub
 logger = util.get_log(__name__)
 
-
-def nesteddict(): 
-  return defaultdict(nesteddict)
 
 
 class strategy_bot(object):
     def __init__(self)-> None:
 
-        self.user_config = nesteddict()
+        self.user_config = util.nesteddict()
         '''
         self.user_config["userid"]["ex_id"]["f_symbols_whitelist"] = []
         self.user_config["userid"]["ex_id"]["f_symbols_blacklist"] = []
@@ -58,49 +54,54 @@ class strategy_bot(object):
         self.user_config["userid"]["ex_id"]["symbols"]["symbol"]["f_strategy"] = ""
         '''
 
-        self.user_exchange = nesteddict()
+        self.user_exchange = util.nesteddict()
         #self.user_exchange["userid"]["ex_id"] = None
 
-        self.user_strategy = nesteddict()
+        self.user_strategy = util.nesteddict()
         #self.user_strategy["userid"]["ex_id"]["symbol"]['timeframe'] = None
 
-        self.exchange_whitelist_auto = nesteddict()
+        self.exchange_whitelist_auto = util.nesteddict()
         #self.exchange_whitelist_auto["ex_id"] = []
 
-        self.user_balances = nesteddict()
+        self.user_balances = util.nesteddict()
         #self.user_balances["userid"]["ex_id"]["symbol"] = None
 
         self.userid_system = 0
 
-        self.datahub = datahub()
         self.queue_thread = queue.Queue()
 
-        self.init_system_user_conifg()
-        self.init_user_conifg()
+        self.load_system_conifg()
+        self.load_user_conifg()
         self.refresh_whitelist_all()
-        self.init_system_strategy()
-
+        self.load_system_strategy()
         self.load_user_strategy()
         self.load_user_balances()
 
-    async def init_all_data(self):
-        self.init_user_conifg()
-        self.refresh_whitelist_all()
-        self.init_system_strategy()
-        self.load_user_strategy()
-        await self.fetch_balances()
-        self.load_user_balances()
 
 
+    async def run_update_config(self):
+        while True:
+            await self.fetch_balances()
+            self.load_user_balances()
+
+            await asyncio.sleep(3600)
+
+            self.load_system_conifg()
+            self.load_user_conifg()
+            self.refresh_whitelist_all()
+            self.load_system_strategy()
+            self.load_user_strategy()
+
+            
     def to_string(self):
         return "strategy_bot[] "
 
-    def init_system_user_conifg(self):
-        #logger.debug(self.to_string() + "init_system_user_conifg()  start")
+    def load_system_conifg(self):
+        #logger.debug(self.to_string() + "load_system_conifg()  start")
         t_user_exchange_list = db.Session().query(db.t_user_exchange).filter(
             db.t_user_exchange.f_userid == 0, 
         ).all()
-        logger.debug(self.to_string() + "init_system_user_conifg() len={0}".format(len(t_user_exchange_list)))
+        logger.debug(self.to_string() + "load_system_conifg() len={0}".format(len(t_user_exchange_list)))
         for t_user_exchange in t_user_exchange_list:
             #self.user_exchange[t_user_exchange.f_userid][t_user_exchange.f_ex_id] = exchange_trade(t_user_exchange)
             self.user_config[t_user_exchange.f_userid][t_user_exchange.f_ex_id] = {
@@ -118,16 +119,16 @@ class strategy_bot(object):
                 "f_trailing_stop_channel" : t_user_exchange.f_trailing_stop_channel,
                 "f_strategy" : t_user_exchange.f_strategy,
             }
-        #logger.debug(self.to_string() + "init_system_user_conifg() user_config={0}".format(self.user_config))
+        #logger.debug(self.to_string() + "load_system_conifg() user_config={0}".format(self.user_config))
 
 
-    def init_user_conifg(self):
-        logger.debug(self.to_string() + "init_user_conifg()  start")
+    def load_user_conifg(self):
+        logger.debug(self.to_string() + "load_user_conifg()  start")
         t_user_exchange_list = db.Session().query(db.t_user_exchange).filter(
             db.t_user_exchange.f_userid > 1, 
             db.t_user_exchange.f_apikey != "",
         ).all()
-        logger.debug(self.to_string() + "init_user_conifg() len={0}".format(len(t_user_exchange_list)))
+        logger.debug(self.to_string() + "load_user_conifg() len={0}".format(len(t_user_exchange_list)))
         for t_user_exchange in t_user_exchange_list:
             self.user_exchange[t_user_exchange.f_userid][t_user_exchange.f_ex_id] = exchange_trade(t_user_exchange)
             self.user_config[t_user_exchange.f_userid][t_user_exchange.f_ex_id] = {
@@ -145,7 +146,7 @@ class strategy_bot(object):
                 "f_trailing_stop_channel" : t_user_exchange.f_trailing_stop_channel,
                 "f_strategy" : t_user_exchange.f_strategy,
             }
-        logger.debug(self.to_string() + "init_user_conifg()  end")
+        logger.debug(self.to_string() + "load_user_conifg()  end")
 
 
     def refresh_whitelist(self, ex_id):
@@ -156,8 +157,7 @@ class strategy_bot(object):
         ).order_by(desc(db.t_ticker_crrent.f_quote_volume)).limit(50):
             whitelist.append(t_ticker_crrent.f_symbol)
         self.exchange_whitelist_auto[ex_id] = whitelist
-        if len(whitelist) > 0:
-            logger.debug(self.to_string() + "refresh_whitelist({0}) end len={1}".format(ex_id, len(whitelist)))
+        logger.debug(self.to_string() + "refresh_whitelist({0}) end len={1}".format(ex_id, len(whitelist)))
 
     def refresh_whitelist_all(self):
         #logger.debug(self.to_string() + "refresh_whitelist_all()  start")
@@ -167,18 +167,17 @@ class strategy_bot(object):
 
 
 
-    def init_system_strategy(self):
-        #logger.debug(self.to_string() + "init_system_strategy()  start")
+    def load_system_strategy(self):
+        #logger.debug(self.to_string() + "load_system_strategy()  start")
         t_markets_list = db.Session().query(db.t_markets).all()
         for t_markets in t_markets_list:
             if t_markets.f_ex_id in util.System_Strategy_ex:
                 if t_markets.f_quote in util.System_Strategy_quote:
                     for tf in util.System_Strategy_Minutes_TimeFrame.keys():
-                        logger.debug(self.to_string() + "init_system_strategy() self.user_strategy[{0}][{1}][{2}][{3}] ".format(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf))
+                        logger.debug(self.to_string() + "load_system_strategy() self.user_strategy[{0}][{1}][{2}][{3}] ".format(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf))
                         a = analyze(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf, strategy_breakout())
-                        a.datahub = self.datahub
                         self.user_strategy[self.userid_system][t_markets.f_ex_id][t_markets.f_symbol][tf] = a
-        #logger.debug(self.to_string() + "init_system_strategy()  end")
+        #logger.debug(self.to_string() + "load_system_strategy()  end")
 
 
     def load_user_strategy(self):
@@ -227,22 +226,26 @@ class strategy_bot(object):
 
 
     # fetch_balances
+    '''
+    self.balance['BTC']['free']     # 还有多少钱
+    self.balance['BTC']['used']
+    self.balance['BTC']['total']
+    '''
+    async def fetch_balances_by_userid_exid(self, userid, ex_id):
+        ex = self.user_exchange[userid][ex_id]
+        if not ex:
+            return
+        b = await ex.fetch_balances()
+        for base, amount in b["free"].items():
+            quote = self.user_config[userid][ex_id]["f_quote"]
+            t = db.t_user_balances()
+            t.update(userid, ex_id, base, amount, quote)
+            db.Session().merge(t)
+
     async def fetch_balances_by_userid(self, userid):
-        if not self.user_exchange[userid]:
-            return
-        if not self.user_config[userid]:
-            return
         for ex_id in self.user_config[userid].keys():
-            if not self.user_exchange[userid][ex_id]:
-                continue
-            ex = self.user_exchange[userid][ex_id]
-            b = await ex.fetch_balances()
-            for base, amount in b["free"].items():
-                quote = self.user_config[userid][ex_id]["f_quote"]
-                t = db.t_user_balances()
-                t.update(userid, ex_id, base, amount, quote)
-                db.Session().merge(t)
-            
+            await self.fetch_balances_by_userid_exid(userid, ex_id)
+
     async def fetch_balances(self):
         for userid in self.user_config.keys():
             await self.fetch_balances_by_userid(userid)
@@ -250,7 +253,15 @@ class strategy_bot(object):
 
 
 
+
+
+
+
+
     def topic_records_get(self, records: TupleRecord):
+        '''
+        取k线数据，放入列表
+        '''
         #logger.debug(self.to_string() + "topic_records_get() len(records)={0}".format(len(records)))
         for record in records:
             self.queue_thread.put(record)
@@ -258,9 +269,11 @@ class strategy_bot(object):
 
     '''
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
-    record.values=('okex', 'NGC/BTC', 5, 1532270100000, 6.444e-05, 6.444e-05, 6.444e-05, 6.444e-05, 0.0, 1532270536)
     '''
     async def topic_records_process(self):
+        '''
+        读取k线数据，应用量化策略
+        '''
         #logger.debug(self.to_string() + "topic_records_process()")
         while True:
             qsize = self.queue_thread.qsize()
@@ -276,20 +289,22 @@ class strategy_bot(object):
                 '''
             record = self.queue_thread.get()
             #logger.debug(self.to_string() + "topic_records_process() record={0}".format(record))
-            for userid, user_config in self.user_config.items():
-                ex_id = record.values[0]
-                symbol = record.values[1]
-                tf = record.values[2]
-                ohlcv = [record.values[3], record.values[4], record.values[5], record.values[6], record.values[7], record.values[8]]
-                #logger.debug(self.to_string() + "topic_records_process(){0},{1}".format(userid, record.values))
+            ex_id = record.values[0]
+            symbol = record.values[1]
+            tf = record.values[2]
+            ohlcv = [record.values[3], record.values[4], record.values[5], record.values[6], record.values[7], record.values[8]]
+            for userid in self.user_config.keys():
                 try:
-                    self.check_close_pos(userid, ex_id, symbol, tf, [ohlcv])
+                    # 止赢 / 止损 / 更新止损线
+                    self.check_position(userid, ex_id, symbol, tf, [ohlcv])
                 except:
                     logger.error(traceback.format_exc())
                 try:
                     if userid == 0:
+                        # 系统策略，更新计算结果，不下单
                         self.process_strategy_system(userid, ex_id, symbol, tf, [ohlcv])
                     else:
+                        # 用户策略，下单买卖
                         await self.process_strategy_user(userid, ex_id, symbol, tf, [ohlcv])
                 except:
                     logger.error(traceback.format_exc())
@@ -346,7 +361,7 @@ class strategy_bot(object):
 
 
     # ['f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v']
-    def check_close_pos(self, userid, ex_id, symbol, tf, ohlcv_list):
+    def check_position(self, userid, ex_id, symbol, tf, ohlcv_list):
         #logger.debug(self.to_string() + "process_position({0},{1},{2},{3},{4}) start".format(userid, ex_id, symbol, tf, ohlcv_list))
         if not self.user_balances[userid][ex_id][symbol]:
             return
@@ -355,18 +370,13 @@ class strategy_bot(object):
         if not self.user_config[userid][ex_id]:
             return
         logger.debug(self.to_string() + "process_position({0},{1},{2},{3}) start".format(userid, ex_id, symbol, ohlcv_list))
-        lowest = 0.0
-        ts = 0
-        for ohlcv in ohlcv_list:
-            if lowest <= 0.0:
-                lowest = ohlcv.f_l
-            lowest = min(lowest, ohlcv.f_l)
-            ts = max(ts, ohlcv.f_ts)
+        bid = ohlcv_list[-1].f_c
+        ts = ohlcv_list[-1].f_ts
         t_user_balances = self.user_balances[userid][ex_id][symbol]
-        if self.is_stoploss(t_user_balances, lowest, ts):
+        if self.is_stoploss(t_user_balances, bid, ts):
             self.close_position(t_user_balances)
             return
-        if self.is_take_profit(t_user_balances, lowest, ts):
+        if self.is_take_profit(t_user_balances, bid, ts):
             self.close_position(t_user_balances)
             return
 
@@ -425,22 +435,6 @@ class strategy_bot(object):
         ex = self.user_exchange[t_user_balances.f_userid][t_user_balances.f_ex_id]
         ex.sell_all(str(t_user_balances.f_symbol), t_user_balances.f_amount)
         db.Session(t_user_balances).flush()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

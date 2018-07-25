@@ -71,7 +71,7 @@ class datahub():
         endpoint = conf_aliyun_datahub['dev_endpoint']
         self.project_name = conf_aliyun_datahub['dev_project']
         if conf.dev_or_product == 2:
-            logger.debug(self.to_string() + "product !!!")
+            logger.debug(self.to_string() + "product ! ")
             access_id = conf_aliyun_datahub['product_access_id']
             access_key = conf_aliyun_datahub['product_access_key']
             endpoint = conf_aliyun_datahub['product_endpoint']
@@ -80,9 +80,8 @@ class datahub():
         self.datahub = DataHub(access_id, access_key, endpoint)
         self.cursor_type = CursorType.LATEST
         self.get_limit_num = 30
+        logger.debug(self.to_string() + "__init__()")
 
-        #self.create_project()
-        #self.create_all_topic()
 
     def to_string(self):
         return "datahub[{0}] ".format(self.project_name)
@@ -263,4 +262,12 @@ class datahub():
                     logger.error(traceback.format_exc())
             #await asyncio.sleep(0)
             
+
+
+
+
+
+g_datahub = datahub()
+
+
 

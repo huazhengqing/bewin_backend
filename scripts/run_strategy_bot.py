@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+from db.datahub import g_datahub
 import util
 from strategy.strategy_bot import strategy_bot
 import conf.conf_aliyun
@@ -24,15 +25,15 @@ logger = util.get_log(__name__)
 bot = strategy_bot()
 
 
-thread_fetch = threading.Thread(target=bot.datahub.run_get_topic, args=("t_ohlcv", bot.topic_records_get))
+thread_fetch = threading.Thread(target=g_datahub.run_get_topic, args=("t_ohlcv", bot.topic_records_get))
 thread_fetch.start()
 
 
 
 tasks = []
 executor = ThreadPoolExecutor()
-#tasks.append(asyncio.ensure_future(bot.datahub.run_get_topic("t_ohlcv", bot.topic_records_get)))
-for i in range(100):
+tasks.append(asyncio.ensure_future(bot.run_update_config()))
+for i in range(10):
     #tasks.append(asyncio.ensure_future(bot.topic_records_process()))
     tasks.append(asyncio.ensure_future(asyncio.get_event_loop().run_in_executor(executor, util.sub_loop, bot.topic_records_process)))
 

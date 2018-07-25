@@ -20,7 +20,7 @@ import conf.conf_aliyun
 import conf
 import util
 import db
-from db.datahub import datahub
+from db.datahub import g_datahub
 from exchange.exchange import exchange
 from exchange import parse_ohlcv_dataframe
 logger = util.get_log(__name__)
@@ -47,7 +47,6 @@ class analyze(object):
         self.ohlcv_list = self.load_ohlcv_from_db()
         self.dataframe = None
         
-        self.datahub = None
 
     def to_string(self):
         return "analyze[{0},{1},{2},{3}] ".format(self.userid, self.ex_id, self.symbol, self.timeframe)
@@ -186,10 +185,10 @@ class analyze(object):
     '''
     def pub_topic(self, t_symbols_analyze):
         #logger.debug(self.to_string() + "pub_topic() t_symbols_analyze={0}".format(t_symbols_analyze))
-        if self.datahub is None:
+        if self.userid != 0:
             return
         topic_name = "t_symbols_analyze"
-        topic, shards = self.datahub.get_topic(topic_name)
+        topic, shards = g_datahub.get_topic(topic_name)
         record = TupleRecord(schema=topic.record_schema)
         record.values = [
             t_symbols_analyze.f_ex_id,
@@ -220,7 +219,7 @@ class analyze(object):
             arrow.utcnow().timestamp * 1000
         ]
         record.shard_id = shards[randint(1, 1000) % len(shards)].shard_id
-        self.datahub.pub_topic(topic_name, [record])
+        g_datahub.pub_topic(topic_name, [record])
         
 
 

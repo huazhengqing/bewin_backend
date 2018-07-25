@@ -23,7 +23,7 @@ import conf.conf_aliyun
 import conf
 import util
 import db
-from db.datahub import datahub
+from db.datahub import g_datahub
 from exchange.exchange import exchange
 logger = util.get_log(__name__)
 
@@ -31,7 +31,6 @@ logger = util.get_log(__name__)
 
 class fetch_base():
 
-    __datahub = datahub()
     __ex_symbol_fee = util.nesteddict()
     __symbol_ex_ticker = util.nesteddict()
     __queue_task_spread = asyncio.Queue()
@@ -233,7 +232,7 @@ class fetch_base():
     '''
     async def run_calc_spread(self, topic_name="t_spread"):
         logger.debug(self.to_string() + "run_calc_spread()")
-        topic, shards = fetch_base.__datahub.get_topic(topic_name)
+        topic, shards = g_datahub.get_topic(topic_name)
         shard_count = len(shards)
         while True:
             try:
@@ -290,7 +289,7 @@ class fetch_base():
                     i = random.randint(1,100) % shard_count
                     record2.shard_id = shards[i].shard_id
                     records.append(record2)
-                fetch_base.__datahub.pub_topic(topic_name, records)
+                g_datahub.pub_topic(topic_name, records)
             except DatahubException as e:
                 logger.error(traceback.format_exc(e))
             except Exception as e:
@@ -338,7 +337,7 @@ class fetch_base():
         if len(symbols_todu) <= 0:
             return
 
-        topic, shards = fetch_base.__datahub.get_topic(topic_name)
+        topic, shards = g_datahub.get_topic(topic_name)
         f_timeframe = util.TimeFrame_Minutes[timeframe_str]
         while True:
             ts_start = arrow.utcnow().shift(minutes=-f_timeframe).timestamp * 1000
@@ -366,7 +365,7 @@ class fetch_base():
                     records.append(record)
                     i = i + 1
                 #logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2},{3})len(records) = {4}".format(ex_id, topic_name, symbol, timeframe_str, len(records)))
-                fetch_base.__datahub.pub_topic(topic_name, records)
+                g_datahub.pub_topic(topic_name, records)
                 await asyncio.sleep(3)
             since_ms = ts_start
             await asyncio.sleep(1)

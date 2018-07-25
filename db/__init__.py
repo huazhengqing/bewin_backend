@@ -28,12 +28,9 @@ logger = util.get_log(__name__)
 
 
 _DECL_BASE: Any = declarative_base()
-Session = None
 
 
-def init() -> None:
-    if Session is not None:
-        return
+def init():
     host = conf_aliyun_mysql['dev_db_host']
     port = conf_aliyun_mysql['dev_db_port']
     user = conf_aliyun_mysql['dev_user']
@@ -43,20 +40,28 @@ def init() -> None:
         port = conf_aliyun_mysql['product_db_port']
         user = conf_aliyun_mysql['product_user']
         password = conf_aliyun_mysql['product_password']
+        logger.info("db product !")
     db_name = conf_aliyun_mysql['db']
     charset = conf_aliyun_mysql['charset']
     db_url = "mysql+pymysql://{0}:{1}@{2}:{3}/{4}?charset={5}".format(user, password, host, port, db_name, charset)
     logger.info(db_url)
     engine = create_engine(
         db_url, 
-        #max_overflow=0,  # 超过连接池大小外最多创建的连接
-        #pool_size=5,  # 连接池大小
-        #pool_timeout=30,  # 池中没有线程最多等待的时间，否则报错
-        #pool_recycle=-1, # 多久之后对线程池中的线程进行一次连接的回收（重置）
+        #max_overflow=0,    # 超过连接池大小外最多创建的连接
+        #pool_size=5,       # 连接池大小
+        #pool_timeout=30,   # 池中没有线程最多等待的时间，否则报错
+        #pool_recycle=-1,   # 多久之后对线程池中的线程进行一次连接的回收（重置）
         echo = False
     )
     session_factory = sessionmaker(bind=engine, autoflush=True, autocommit=True)
-    db.Session = scoped_session(session_factory)
+    return scoped_session(session_factory)
+
+
+Session = init()
+
+
+
+
 
 '''
     t_exchanges.session = session()
@@ -91,7 +96,8 @@ def init() -> None:
     t_user_exchange_symbol.session = session()
     t_user_exchange_symbol.query = session.query_property()
 '''
-init()
+
+
 
 
 def has_column(columns, searchname: str) -> bool:
@@ -423,12 +429,7 @@ class t_user_balances(_DECL_BASE):
     f_close_profit_rate = Column(Float, nullable=False, default=0.0)
     f_open_ts = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
     f_close_ts = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
-    f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
-
-    def cleanup(self) -> None:
-        t_user_balances.session = db.Session()
-        t_user_balances.query = db.Session.query_property()
-        t_user_balances.session.flush()
+    #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
     def update(self, userid, ex_id, base, amount, quote = "BTC") -> None:
         if amount <= 0.0:
@@ -440,27 +441,18 @@ class t_user_balances(_DECL_BASE):
         if quote is None:
             quote = "BTC"
         self.f_quote = quote
-        if self.quote in ["USDT", "USD"]:
+        if self.f_quote in ["USDT", "USD"]:
             if self.f_base not in ["USDT", "USD"]:
                 self.f_symbol = self.f_base + "/" + self.f_quote
-        if self.quote in ["BTC"]:
+        if self.f_quote in ["BTC"]:
             if self.f_base not in ["BTC", "USDT", "USD"]:
                 self.f_symbol = self.f_base + "/" + self.f_quote
-        if self.quote in ["ETH"]:
+        if self.f_quote in ["ETH"]:
             if self.f_base not in ["ETH", "BTC", "USDT", "USD"]:
                 self.f_symbol = self.f_base + "/" + self.f_quote
-        if self.quote not in ["ETH", "BTC", "USDT", "USD"]:
-            if self.f_base != self.quote:
+        if self.f_quote not in ["ETH", "BTC", "USDT", "USD"]:
+            if self.f_base != self.f_quote:
                 self.f_symbol = self.f_base + "/" + self.f_quote
-
-
-    def close(self, bid: float) -> None:
-        self.f_close_bid = bid
-        self.f_close_profit = 0
-        self.f_close_profit_rate = 0
-        self.f_close_ts = datetime.utcnow()
-        
-
 
     def update_long_stoploss(self, stoploss_new: float):
         if not self.f_stoploss:
@@ -474,6 +466,12 @@ class t_user_balances(_DECL_BASE):
         new_loss = float(self.f_bid * (1 - abs(stoploss_rate)))
         self.update_long_stoploss(new_loss)
 
+    def close(self, bid: float) -> None:
+        self.f_close_bid = bid
+        self.f_close_profit = 0
+        self.f_close_profit_rate = 0
+        self.f_close_ts = datetime.utcnow()
+        
 
 
 
@@ -498,7 +496,7 @@ class t_user_config(_DECL_BASE):
     f_userid = Column(Integer, nullable=False, primary_key=True)
     f_telegram_token = Column(String, nullable=False)
     f_telegram_chat_id = Column(String, nullable=False)
-    f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
 
 
@@ -556,7 +554,7 @@ class t_user_exchange(_DECL_BASE):
     f_trailing_stop_channel = Column(Integer, nullable=False)
     f_strategy = Column(String, nullable=False)
     f_ts = Column(Integer, nullable=False)
-    f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
 
 
 
@@ -596,7 +594,7 @@ class t_user_exchange_symbol(_DECL_BASE):
     f_trailing_stop_channel = Column(Integer, nullable=False)
     f_strategy = Column(String, nullable=False)
     f_ts = Column(Integer, nullable=False)
-    f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
+    #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)
     
 
 
