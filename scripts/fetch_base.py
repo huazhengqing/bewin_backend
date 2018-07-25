@@ -134,6 +134,9 @@ class fetch_base():
     ['f_ex_id', 'f_symbol', 'f_ts', 'f_bid', 'f_bid_volume', 'f_ask', 'f_ask_volume', 'f_vwap', 'f_open', 'f_high', 'f_low', 'f_close', 'f_last', 'f_previous_close', 'f_change', 'f_percentage', 'f_average', 'f_base_volume', 'f_quote_volume', 'f_ts_update']
     '''
     async def fetch_tickers(self, ex_id, topic, shards):
+        # 降低 CPU ，暂时性
+        await asyncio.sleep(10)
+
         self.init_exchange(ex_id)
         #logger.debug(self.to_string() + "fetch_tickers({0})".format(ex_id))
         records = []
