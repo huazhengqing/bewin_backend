@@ -16,7 +16,7 @@ import util
 logger = util.get_log(__name__)
 
 
-ids = conf.product_ex_ids
+ids = conf.dev_ex_ids
 if conf.dev_or_product == 2:
     ids = conf.product_ex_ids
 
@@ -26,7 +26,7 @@ fetcher = fetch_base()
 
 tasks = []
 for id in ids:
-    tasks.append(asyncio.ensure_future(fetcher.run_pub_topic(id, "t_ticker", fetcher.fetch_tickers)))
+    tasks.append(asyncio.ensure_future(fetch_base.__datahub.run_pub_topic(id, "t_ticker", fetcher.fetch_tickers)))
 tasks.append(asyncio.ensure_future(fetcher.run_calc_spread()))
 
 
@@ -37,5 +37,6 @@ try:
     loop.run_until_complete(asyncio.gather(*pending))
 except:
     logger.error(traceback.format_exc())
+loop.close()
 
 

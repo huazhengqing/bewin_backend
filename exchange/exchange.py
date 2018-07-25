@@ -211,8 +211,8 @@ class exchange(object):
 
     async def fetch_ohlcv(self, symbol, timeframe, since_ms = None):
         #logger.debug(self.to_string() + "fetch_ohlcv({0}, {1}, {2}) start".format(symbol, period, since_ms))
-        if timeframe not in self.ex.timeframes:
-            return []
+        #if timeframe not in self.ex.timeframes:
+        #    return []
         data = []
         while True:
             data_part = await self.ex.fetch_ohlcv(symbol, timeframe=timeframe, since=since_ms)
@@ -223,9 +223,10 @@ class exchange(object):
             if since_ms is None:
                 break
             since_ms = data[-1][0] + 1
-            if since_ms >= arrow.utcnow().shift(minutes=-util.TimeFrame_Minutes[timeframe]).timestamp * 1000:
+            if since_ms >= arrow.utcnow().shift(minutes=-util.TimeFrame_Minutes[timeframe] * 2).timestamp * 1000:
                 break
-        logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) end  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
+            logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2})  while Truee  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
+        #logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) end  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
         return data
 
     # 异常处理

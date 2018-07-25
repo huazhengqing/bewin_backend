@@ -29,16 +29,21 @@ logger = util.get_log(__name__)
 
 
 
-class fetch_base(datahub):
+class fetch_base():
+
+    __datahub = datahub()
     __ex_symbol_fee = util.nesteddict()
     __symbol_ex_ticker = util.nesteddict()
     __queue_task_spread = asyncio.Queue()
+
     def __init__(self):
-        super(fetch_base, self).__init__()
+        #super(fetch_base, self).__init__()
         self.exchanges = dict()
         #self.executor_max_works = 5
         #self.executor = ThreadPoolExecutor(self.executor_max_works)
         
+    def to_string(self):
+        return "fetch_base[] "
 
     def init_exchange(self, id):
         if id in ccxt.exchanges:
@@ -228,7 +233,7 @@ class fetch_base(datahub):
     '''
     async def run_calc_spread(self, topic_name="t_spread"):
         logger.debug(self.to_string() + "run_calc_spread()")
-        topic, shards = self.get_topic(topic_name)
+        topic, shards = fetch_base.__datahub.get_topic(topic_name)
         shard_count = len(shards)
         while True:
             try:
@@ -285,7 +290,7 @@ class fetch_base(datahub):
                     i = random.randint(1,100) % shard_count
                     record2.shard_id = shards[i].shard_id
                     records.append(record2)
-                self.pub_topic(topic_name, records)
+                fetch_base.__datahub.pub_topic(topic_name, records)
             except DatahubException as e:
                 logger.error(traceback.format_exc(e))
             except Exception as e:
@@ -315,33 +320,33 @@ class fetch_base(datahub):
             return
         logger.debug(self.to_string() + "run_fetch_ohlcv({0})".format(ex_id))
         '''
-        try:
-            await self.exchanges[ex_id].load_markets()
-        except:
-            logger.error(traceback.format_exc())
         if self.exchanges[ex_id].ex.timeframes is None or timeframe_str not in self.exchanges[ex_id].ex.timeframes:
             logger.info(self.to_string() + "run_fetch_ohlcv({0}) NOT has timeframe={1}".format(ex_id, timeframe_str))
             return
         '''
         if symbols is None or len(symbols) <= 0:
             symbols = [k for k in fetch_base.__ex_symbol_fee[ex_id].keys()]
-        topic, shards = self.get_topic(topic_name)
-        f_ex_id = ex_id
+        logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols)={3}".format(ex_id, topic_name, timeframe_str, len(symbols)))
+        
+        symbols_todu = []
+        s = 0
+        for symbol in symbols:
+            if s % max_split_count == split_i:
+                symbols_todu.append(symbol)
+            s = s + 1
+        logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols_todu)={3}".format(ex_id, topic_name, timeframe_str, len(symbols_todu)))
+
+        topic, shards = fetch_base.__datahub.get_topic(topic_name)
         f_timeframe = util.TimeFrame_Minutes[timeframe_str]
         while True:
             ts_start = arrow.utcnow().shift(minutes=-f_timeframe).timestamp * 1000
             i = 0
-            s = 0
-            for symbol in symbols:
-                if s % max_split_count != split_i:
-                    s = s + 1
-                    continue
-                s = s + 1
-                f_symbol = symbol
+            for symbol in symbols_todu:
                 try:
                     data = await self.exchanges[ex_id].fetch_ohlcv(symbol, timeframe_str, since_ms)
                 except:
                     logger.error(traceback.format_exc())
+                    await asyncio.sleep(3)
                     continue
                 f_ts_update = arrow.utcnow().timestamp
                 #logger.debug(self.to_string() + "run_fetch_ohlcv() f_ts_update={0}".format(f_ts_update))
@@ -354,12 +359,12 @@ class fetch_base(datahub):
                     f_c = d[4]
                     f_v = d[5]
                     record = TupleRecord(schema=topic.record_schema)
-                    record.values = [f_ex_id, f_symbol, f_timeframe, f_ts, f_o, f_h, f_l, f_c, f_v, f_ts_update]
+                    record.values = [ex_id, symbol, f_timeframe, f_ts, f_o, f_h, f_l, f_c, f_v, f_ts_update]
                     record.shard_id = shards[i % len(shards)].shard_id
                     records.append(record)
                     i = i + 1
                 logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2},{3})len(records) = {4}".format(ex_id, topic_name, symbol, timeframe_str, len(records)))
-                self.pub_topic(topic_name, records)
+                fetch_base.__datahub.pub_topic(topic_name, records)
             since_ms = ts_start
             
 
