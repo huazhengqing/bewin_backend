@@ -335,6 +335,8 @@ class fetch_base():
                 symbols_todu.append(symbol)
             s = s + 1
         logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols_todu)={3}".format(ex_id, topic_name, timeframe_str, len(symbols_todu)))
+        if len(symbols_todu) <= 0:
+            return
 
         topic, shards = fetch_base.__datahub.get_topic(topic_name)
         f_timeframe = util.TimeFrame_Minutes[timeframe_str]
@@ -346,7 +348,7 @@ class fetch_base():
                     data = await self.exchanges[ex_id].fetch_ohlcv(symbol, timeframe_str, since_ms)
                 except:
                     logger.error(traceback.format_exc())
-                    await asyncio.sleep(3)
+                    await asyncio.sleep(15)
                     continue
                 f_ts_update = arrow.utcnow().timestamp
                 #logger.debug(self.to_string() + "run_fetch_ohlcv() f_ts_update={0}".format(f_ts_update))
@@ -363,9 +365,11 @@ class fetch_base():
                     record.shard_id = shards[i % len(shards)].shard_id
                     records.append(record)
                     i = i + 1
-                logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2},{3})len(records) = {4}".format(ex_id, topic_name, symbol, timeframe_str, len(records)))
+                #logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2},{3})len(records) = {4}".format(ex_id, topic_name, symbol, timeframe_str, len(records)))
                 fetch_base.__datahub.pub_topic(topic_name, records)
+                await asyncio.sleep(3)
             since_ms = ts_start
-            
+            await asyncio.sleep(1)
+
 
 

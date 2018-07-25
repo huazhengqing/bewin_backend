@@ -32,7 +32,7 @@ symbols = []
 #since_ms = arrow.utcnow().shift(days=-180).timestamp * 1000
 since_ms = arrow.utcnow().shift(days=-1).timestamp * 1000
 
-max_split_count = 10
+max_split_count = 5
 fetcher = dict()
 for i in range(max_split_count):
     fetcher[i] = fetch_base()
