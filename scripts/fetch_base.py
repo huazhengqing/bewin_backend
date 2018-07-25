@@ -191,7 +191,7 @@ class fetch_base():
                 "f_ask": f_ask,
             }
             await fetch_base.__queue_task_spread.put(v)
-            logger.debug(self.to_string() + "fetch_tickers({0}) len(records)={1}".format(ex_id, len(records)))
+        logger.debug(self.to_string() + "fetch_tickers({0}) len(records)={1}".format(ex_id, len(records)))
         return records
 
     async def fetch_ticker(self, ex_id, topic, shards, symbol):
