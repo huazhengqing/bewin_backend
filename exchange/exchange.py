@@ -101,8 +101,11 @@ class exchange(object):
         return "exchange[{0},{1}] ".format(self.ex_id, self.userid)
     
     async def close(self):
-        if not self.ex:
-            await self.ex.close()
+        if self.ex:
+            try:
+                await self.ex.close()
+            except:
+                pass
 
     def set_symbol(self, symbol):
         self.symbol_cur = symbol
@@ -146,8 +149,8 @@ class exchange(object):
             #logger.debug(self.to_string() + "load_markets() has={0}".format(self.ex.has))
             #logger.debug(self.to_string() + "load_markets() urls={0}".format(self.ex.urls))
             #logger.debug(self.to_string() + "load_markets() currencies={0}".format(self.ex.currencies))
-            self.fee_taker = self.ex.fees['trading']['taker'] if self.ex.fees['trading'].get('taker') is not None else 0
-            logger.debug(self.to_string() + "load_markets() fee_taker={0}".format(self.fee_taker))
+            #self.fee_taker = self.ex.fees['trading']['taker'] if self.ex.fees['trading'].get('taker') is not None else 0
+            #logger.debug(self.to_string() + "load_markets() fee_taker={0}".format(self.fee_taker))
         #logger.debug(self.to_string() + "load_markets() end ")
         return self.ex.markets
 

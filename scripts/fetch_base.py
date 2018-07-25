@@ -63,19 +63,18 @@ class fetch_base():
         for ex in self.exchanges.values():
             await ex.close()
 
-    async def fetch_markets_to_db(self, ids = []):
-        if len(ids) <= 0:
-            ids = ccxt.exchanges
-        for id in ids:
-            logger.debug(self.to_string() + "fetch_markets_to_db({0})".format(id))
+    async def fetch_markets_by_id(self, id):
+        if id in ccxt.exchanges:
+            #logger.debug(self.to_string() + "fetch_markets_to_db({0})".format(id))
             ex = exchange(id)
             try:
-                logger.debug(self.to_string() + "fetch_markets_to_db({0}) load_markets()".format(id))
+                #logger.debug(self.to_string() + "fetch_markets_to_db({0}) load_markets()".format(id))
                 await ex.load_markets()
-            except Exception:
-                logger.warn(traceback.format_exc())
-                logger.warn(self.to_string() + "fetch_exchanges({0}) Exception ".format(id))
-                continue
+            except Exception as e:
+                #logger.warn(traceback.format_exc())
+                logger.warn(self.to_string() + "fetch_exchanges({0}) Exception={1}".format(id, e))
+                await ex.close()
+                return
             t_exchanges = db.t_exchanges(
                 f_ex_id = id,
                 f_ex_name = ex.ex.name,
@@ -86,10 +85,13 @@ class fetch_base():
                 #f_url_api = ex.ex.urls['api'] if ex.ex.urls.get('api') else '',
                 #f_url_doc = ex.ex.urls['doc'] if ex.ex.urls.get('doc') else '',
                 #f_url_fees = json.dumps(ex.ex.urls['fees']) if ex.ex.urls.get('fees') else '',
-                f_timeframes = json.dumps(ex.ex.timeframes) if ex.has_api('fetchOHLCV')  else ''
+                f_timeframes = json.dumps(ex.ex.timeframes) if ex.has_api('fetchOHLCV') and ex.ex.has['fetchOHLCV'] is True else ''
             )
-            logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_exchanges()".format(id))
+            #logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_exchanges()".format(id))
             db.Session().merge(t_exchanges)
+
+            fee_maker = ex.ex.fees['trading']['maker'] if ex.ex.fees['trading'].get('maker') else 0
+            fee_taker = ex.ex.fees['trading']['taker'] if ex.ex.fees['trading'].get('taker') else 0
 
             for symbol, v in ex.ex.markets.items():
                 _active = 0
@@ -105,22 +107,27 @@ class fetch_base():
                     f_quote = v['quote'],
                     f_active = _active,
                     f_url = "",
-                    f_fee_maker = v['maker'] if v.get('maker') else 0,
-                    f_fee_taker = v['taker'] if v.get('taker') else 0,
+                    f_fee_maker = v['maker'] if v.get('maker') else fee_maker,
+                    f_fee_taker = v['taker'] if v.get('taker') else fee_taker,
                     f_precision_amount = v['precision']['amount'] if v['precision'].get('amount') else 0,
                     f_precision_price = v['precision']['price'] if v['precision'].get('price') else 0,
-                    f_limits_amount_min = v['limits']['amount']['min'] if v['limits'].get('amount') else 0,
-                    f_limits_price_min = v['limits']['price']['min'] if v['limits'].get('price') else 0,
+                    f_limits_amount_min = v['limits']['amount']['min'] if v['limits'].get('amount') and v['limits']['amount'].get('min')  else 0,
+                    f_limits_price_min = v['limits']['price']['min'] if v['limits'].get('price') and v['limits']['price'].get('min') else 0,
                     #f_ts_create = v['info']['Created'] if (v.get('info') and v['info'].get('Created')) else 0,
                 )
-                logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_markets({1})".format(id, symbol))
+                #logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_markets({1})".format(id, symbol))
                 db.Session().merge(t_markets)
-            try:
-                await ex.close()
-            except Exception:
-                pass
+            logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_markets len = {1}".format(id, len(ex.ex.markets)))
+            await ex.close()
 
-    async def run_fetch_markets_to_db(self, ids = []):
+    async def fetch_markets_to_db(self, ids):
+        if len(ids) <= 0:
+            ids = ccxt.exchanges
+        for id in ids:
+            await self.fetch_markets_by_id(id)
+            await asyncio.sleep(3)
+
+    async def run_fetch_markets_to_db(self, ids):
         while True:
             await self.fetch_markets_to_db(ids)
             await asyncio.sleep(12*60*60)
