@@ -18,11 +18,14 @@ logger = util.get_log(__name__)
 ids = conf.dev_ex_ids
 if conf.dev_or_product == 2:
     ids = conf.product_ex_ids
+ids = [
+    'okex',
+    'huobipro',
+    'binance',
+]
 
 
 fetcher = fetch_base()
-
-
 tasks = []
 for id in ids:
     tasks.append(asyncio.ensure_future(g_datahub.run_pub_topic(id, "t_ticker", fetcher.fetch_tickers)))

@@ -438,7 +438,7 @@ class t_user_balances(_DECL_BASE):
         self.f_ex_id = ex_id
         self.f_base = base
         self.f_base_amount = amount
-        if quote is None:
+        if not quote:
             quote = "BTC"
         self.f_quote = quote
         if self.f_quote in ["USDT", "USD"]:

@@ -80,7 +80,7 @@ class exchange_trade(exchange):
     def get_balance(self, currency: str) -> float:
         balances = self.fetch_balances()
         balance = balances.get(currency)
-        if balance is None:
+        if not balance:
             raise Exception(self.to_string() + "get_balance({0}) error ".format(currency))
         return balance['free']
 
@@ -254,10 +254,10 @@ class exchange_trade(exchange):
         ret = await self.ex.create_order(symbol, 'limit', 'buy', amount, price)
         ret = await self.ex.fetch_order(ret['id'], symbol)
         logger.debug(self.to_string() + "buy_cancel({0}, {1}) ret={2}".format(symbol, amount, ret))
-        if ret['filled'] is None or ret['filled'] <= 0.0:
+        if not ret['filled'] or ret['filled'] <= 0.0:
             logger.debug(self.to_string() + "buy_cancel({0}, {1}) ret['filled'] <= 0.0 ret={2}".format(symbol, amount, ret))
         # 订单没有成交全部，剩下的订单取消
-        if ret['remaining'] is None or ret['remaining'] > 0:
+        if not ret['remaining'] or ret['remaining'] > 0:
             logger.debug(self.to_string() + "buy_cancel({0}, {1}) ret['remaining']={2}".format(symbol, amount, ret['remaining']))
             c = 0
             while c < 5:
@@ -282,10 +282,10 @@ class exchange_trade(exchange):
         ret = await self.ex.create_order(symbol, 'limit', 'sell', amount, price)
         ret = await self.ex.fetch_order(ret['id'], symbol)
         logger.debug(self.to_string() + "sell_cancel({0}, {1}) ret={2}".format(symbol, amount, ret))
-        if ret['filled'] is None or ret['filled'] <= 0.0:
+        if not ret['filled'] or ret['filled'] <= 0.0:
             logger.debug(self.to_string() + "sell_cancel({0}, {1}) ret['filled'] <= 0.0 ret={2}".format(symbol, amount, ret))
         # 订单没有成交全部，剩下的订单取消
-        if ret['remaining'] is None or ret['remaining'] > 0:
+        if not ret['remaining'] or ret['remaining'] > 0:
             logger.debug(self.to_string() + "sell_cancel({0}, {1}) ret['remaining']={2}".format(symbol, amount, ret['remaining']))
             c = 0
             while c < 5:

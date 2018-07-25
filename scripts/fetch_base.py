@@ -46,8 +46,11 @@ class fetch_base():
 
     def init_exchange(self, id):
         if id in ccxt.exchanges:
-            if self.exchanges.get(id) is None:
+            if not self.exchanges.get(id):
                 self.exchanges[id] = exchange(id)
+                if not self.exchanges[id]:
+                    logger.error(self.to_string() + "init_exchange({0}) Error".format(id))
+                    raise Exception("fetch_base::init_exchange()")
                 t_markets = db.Session().query(db.t_markets).filter(db.t_markets.f_ex_id == id).all()
                 for t_market in t_markets:
                     fetch_base.__ex_symbol_fee[t_market.f_ex_id][t_market.f_symbol] = t_market.f_fee_taker
@@ -77,13 +80,13 @@ class fetch_base():
                 f_ex_id = id,
                 f_ex_name = ex.ex.name,
                 #f_countries = json.dumps(ex.ex.countries),
-                #f_url_www = ex.ex.urls['www'] if ex.ex.urls.get('www') is not None else '',
-                #f_url_logo = ex.ex.urls['logo'] if ex.ex.urls.get('logo') is not None else '',
-                #f_url_referral = ex.ex.urls['referral'] if ex.ex.urls.get('referral') is not None else '',
-                #f_url_api = ex.ex.urls['api'] if ex.ex.urls.get('api') is not None else '',
-                #f_url_doc = ex.ex.urls['doc'] if ex.ex.urls.get('doc') is not None else '',
-                #f_url_fees = json.dumps(ex.ex.urls['fees']) if ex.ex.urls.get('fees') is not None else '',
-                f_timeframes = json.dumps(ex.ex.timeframes) if ex.ex.has['fetchOHLCV'] is True else ''
+                #f_url_www = ex.ex.urls['www'] if ex.ex.urls.get('www') else '',
+                #f_url_logo = ex.ex.urls['logo'] if ex.ex.urls.get('logo') else '',
+                #f_url_referral = ex.ex.urls['referral'] if ex.ex.urls.get('referral') else '',
+                #f_url_api = ex.ex.urls['api'] if ex.ex.urls.get('api') else '',
+                #f_url_doc = ex.ex.urls['doc'] if ex.ex.urls.get('doc') else '',
+                #f_url_fees = json.dumps(ex.ex.urls['fees']) if ex.ex.urls.get('fees') else '',
+                f_timeframes = json.dumps(ex.ex.timeframes) if ex.has_api('fetchOHLCV')  else ''
             )
             logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_exchanges()".format(id))
             db.Session().merge(t_exchanges)
@@ -122,54 +125,50 @@ class fetch_base():
     '''
     async def fetch_tickers(self, ex_id, topic, shards):
         self.init_exchange(ex_id)
-        if self.exchanges.get(ex_id) is None:
-            logger.warn(self.to_string() + "fetch_tickers({0}) no ex".format(ex_id))
-            return []
         logger.debug(self.to_string() + "fetch_tickers({0})".format(ex_id))
         records = []
-        if self.exchanges[ex_id].ex.has['fetchTickers'] is False:
-            await self.exchanges[ex_id].load_markets()
-            for symbol in self.exchanges[ex_id].ex.symbols:
+        if not self.exchanges[ex_id].has_api('fetchTickers'):
+            for symbol in fetch_base.__ex_symbol_fee[ex_id].keys():
                 try:
                     rs = await self.fetch_ticker(ex_id, topic, shards, symbol)
                     records.extend(rs)
                 except ccxt.RequestTimeout:
-                    #logger.info(traceback.format_exc())
+                    logger.error(traceback.format_exc())
                     await asyncio.sleep(10)
                 except ccxt.DDoSProtection:
-                    #logger.error(traceback.format_exc())
+                    logger.error(traceback.format_exc())
                     await asyncio.sleep(10)
                 except Exception:
-                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
                     logger.error(traceback.format_exc())
-                    #await asyncio.sleep(10)
+                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
+                    await asyncio.sleep(10)
                 except:
-                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
                     logger.error(traceback.format_exc())
-                    #await asyncio.sleep(10)
+                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
+                    await asyncio.sleep(10)
             return records
         tickers = await self.exchanges[ex_id].ex.fetch_tickers()
         i = 0
         f_ex_id = ex_id
         for symbol, ticker in tickers.items():
             f_symbol = symbol
-            f_ts = ticker['timestamp'] is not None and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
-            f_bid = ticker['bid'] is not None and ticker['bid'] or 0
-            f_bid_volume = ticker['bidVolume'] is not None and ticker['bidVolume'] or 0
-            f_ask = ticker['ask'] is not None and ticker['ask'] or 0
-            f_ask_volume = ticker['askVolume'] is not None and ticker['askVolume'] or 0
-            f_vwap = ticker['vwap'] is not None and ticker['vwap'] or 0
-            f_open = ticker['open'] is not None and ticker['open'] or 0
-            f_high = ticker['high'] is not None and ticker['high'] or 0
-            f_low = ticker['low'] is not None and ticker['low'] or 0
-            f_close = ticker['close'] is not None and ticker['close'] or 0
-            f_last = ticker['last'] is not None and ticker['last'] or 0
-            f_previous_close = ticker['previousClose'] is not None and ticker['previousClose'] or 0
-            f_change = ticker['change'] is not None and ticker['change'] or 0
-            f_percentage = ticker['percentage'] is not None and ticker['percentage'] or 0
-            f_average = ticker['average'] is not None and ticker['average'] or 0
-            f_base_volume = ticker['baseVolume'] is not None and ticker['baseVolume'] or 0
-            f_quote_volume = ticker['quoteVolume'] is not None and ticker['quoteVolume'] or 0
+            f_ts = ticker['timestamp'] and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
+            f_bid = ticker['bid'] and ticker['bid'] or 0
+            f_bid_volume = ticker['bidVolume'] and ticker['bidVolume'] or 0
+            f_ask = ticker['ask'] and ticker['ask'] or 0
+            f_ask_volume = ticker['askVolume'] and ticker['askVolume'] or 0
+            f_vwap = ticker['vwap'] and ticker['vwap'] or 0
+            f_open = ticker['open'] and ticker['open'] or 0
+            f_high = ticker['high'] and ticker['high'] or 0
+            f_low = ticker['low'] and ticker['low'] or 0
+            f_close = ticker['close'] and ticker['close'] or 0
+            f_last = ticker['last'] and ticker['last'] or 0
+            f_previous_close = ticker['previousClose'] and ticker['previousClose'] or 0
+            f_change = ticker['change'] and ticker['change'] or 0
+            f_percentage = ticker['percentage'] and ticker['percentage'] or 0
+            f_average = ticker['average'] and ticker['average'] or 0
+            f_base_volume = ticker['baseVolume'] and ticker['baseVolume'] or 0
+            f_quote_volume = ticker['quoteVolume'] and ticker['quoteVolume'] or 0
             f_ts_update = arrow.utcnow().timestamp
             v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
             record = TupleRecord(schema=topic.record_schema)
@@ -187,38 +186,33 @@ class fetch_base():
 
     async def fetch_ticker(self, ex_id, topic, shards, symbol):
         self.init_exchange(ex_id)
-        if self.exchanges.get(ex_id) is None:
-            logger.warn(self.to_string() + "fetch_ticker({0}) no ex".format(ex_id))
-            return []
         logger.debug(self.to_string() + "fetch_ticker({0})".format(ex_id))
         records = []
         ticker = await self.exchanges[ex_id].ex.fetch_ticker(symbol)
-        f_ex_id = self.exchanges[ex_id].ex.id
-        f_symbol = symbol
-        f_ts = ticker['timestamp'] is not None and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
-        f_bid = ticker['bid'] is not None and ticker['bid'] or 0
-        f_bid_volume = ticker['bidVolume'] is not None and ticker['bidVolume'] or 0
-        f_ask = ticker['ask'] is not None and ticker['ask'] or 0
-        f_ask_volume = ticker['askVolume'] is not None and ticker['askVolume'] or 0
-        f_vwap = ticker['vwap'] is not None and ticker['vwap'] or 0
-        f_open = ticker['open'] is not None and ticker['open'] or 0
-        f_high = ticker['high'] is not None and ticker['high'] or 0
-        f_low = ticker['low'] is not None and ticker['low'] or 0
-        f_close = ticker['close'] is not None and ticker['close'] or 0
-        f_last = ticker['last'] is not None and ticker['last'] or 0
-        f_previous_close = ticker['previousClose'] is not None and ticker['previousClose'] or 0
-        f_change = ticker['change'] is not None and ticker['change'] or 0
-        f_percentage = ticker['percentage'] is not None and ticker['percentage'] or 0
-        f_average = ticker['average'] is not None and ticker['average'] or 0
-        f_base_volume = ticker['baseVolume'] is not None and ticker['baseVolume'] or 0
-        f_quote_volume = ticker['quoteVolume'] is not None and ticker['quoteVolume'] or 0
+        f_ts = ticker['timestamp'] and ticker['timestamp'] or int(arrow.utcnow().timestamp * 1000)
+        f_bid = ticker['bid'] and ticker['bid'] or 0
+        f_bid_volume = ticker['bidVolume'] and ticker['bidVolume'] or 0
+        f_ask = ticker['ask'] and ticker['ask'] or 0
+        f_ask_volume = ticker['askVolume'] and ticker['askVolume'] or 0
+        f_vwap = ticker['vwap'] and ticker['vwap'] or 0
+        f_open = ticker['open'] and ticker['open'] or 0
+        f_high = ticker['high'] and ticker['high'] or 0
+        f_low = ticker['low'] and ticker['low'] or 0
+        f_close = ticker['close'] and ticker['close'] or 0
+        f_last = ticker['last'] and ticker['last'] or 0
+        f_previous_close = ticker['previousClose'] and ticker['previousClose'] or 0
+        f_change = ticker['change'] and ticker['change'] or 0
+        f_percentage = ticker['percentage'] and ticker['percentage'] or 0
+        f_average = ticker['average'] and ticker['average'] or 0
+        f_base_volume = ticker['baseVolume'] and ticker['baseVolume'] or 0
+        f_quote_volume = ticker['quoteVolume'] and ticker['quoteVolume'] or 0
         f_ts_update = arrow.utcnow().timestamp
-        v = [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
+        v = [ex_id, symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
         record = TupleRecord(schema=topic.record_schema)
         record.values = v
         i = random.randint(1,100) % len(shards)
         record.shard_id = shards[i].shard_id
-        fetch_base.__symbol_ex_ticker[f_symbol][f_ex_id] = {
+        fetch_base.__symbol_ex_ticker[symbol][ex_id] = {
             "f_ts": f_ts,
             "f_bid": f_bid,
             "f_ask": f_ask,
@@ -311,19 +305,16 @@ class fetch_base():
     '''
     async def run_fetch_ohlcv(self, ex_id, topic_name, symbols, timeframe_str, since_ms, split_i, max_split_count):
         self.init_exchange(ex_id)
-        if self.exchanges.get(ex_id) is None:
-            logger.warn(self.to_string() + "run_fetch_ohlcv({0}) no ex".format(ex_id))
-            return
-        if self.exchanges[ex_id].ex.has['fetchOHLCV'] is False:
+        if not self.exchanges[ex_id].has_api('fetchOHLCV'):
             logger.warn(self.to_string() + "run_fetch_ohlcv({0}) NOT has interface".format(ex_id))
             return
         logger.debug(self.to_string() + "run_fetch_ohlcv({0})".format(ex_id))
         '''
-        if self.exchanges[ex_id].ex.timeframes is None or timeframe_str not in self.exchanges[ex_id].ex.timeframes:
+        if not self.exchanges[ex_id].ex.timeframes or timeframe_str not in self.exchanges[ex_id].ex.timeframes:
             logger.info(self.to_string() + "run_fetch_ohlcv({0}) NOT has timeframe={1}".format(ex_id, timeframe_str))
             return
         '''
-        if symbols is None or len(symbols) <= 0:
+        if not symbols or len(symbols) <= 0:
             symbols = [k for k in fetch_base.__ex_symbol_fee[ex_id].keys()]
         logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols)={3}".format(ex_id, topic_name, timeframe_str, len(symbols)))
         

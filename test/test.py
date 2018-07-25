@@ -19,10 +19,14 @@ import util
 
 
 
-__ex_symbol_fee = util.nesteddict()
+
+
+a = None
 
 
 
-
-c = __ex_symbol_fee['a']['b'] if __ex_symbol_fee['a']['b'] else 0
+c = a and a or 110
 print(c)
+
+
+

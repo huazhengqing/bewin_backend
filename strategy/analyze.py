@@ -38,7 +38,7 @@ class analyze(object):
         self.timeframe = timeframe
 
         self.strategy = strategy
-        if self.strategy is None:
+        if not self.strategy:
             raise Exception(self.to_string() + "strategy is None")
         self.strategy._exchange = self.ex_id
         self.strategy._symbol = self.symbol
@@ -103,7 +103,7 @@ class analyze(object):
             db.t_symbols_analyze.f_symbol == str(self.symbol),
             db.t_symbols_analyze.f_timeframe == int(self.timeframe)
         ).first()
-        if t_symbols_analyze is None:
+        if not t_symbols_analyze:
             #logger.debug(self.to_string() + "update_db() t_symbols_analyze is None  ")
             t_symbols_analyze = db.t_symbols_analyze(
                 f_ex_id = self.ex_id,

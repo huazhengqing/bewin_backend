@@ -192,7 +192,7 @@ class strategy_bot(object):
                     if symbol in self.user_config[userid][ex_id]["f_symbols_blacklist"]:
                         continue
                     user_strategy = strategy.load_strategy(v2["f_strategy"])
-                    if user_strategy is None:
+                    if not user_strategy:
                         continue
                     a = analyze(userid, ex_id, symbol, user_strategy._timeframe, user_strategy)
                     self.user_strategy[userid][ex_id][symbol][user_strategy._timeframe] = a

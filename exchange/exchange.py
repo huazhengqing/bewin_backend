@@ -101,7 +101,7 @@ class exchange(object):
         return "exchange[{0},{1}] ".format(self.ex_id, self.userid)
     
     async def close(self):
-        if not self.ex is None:
+        if not self.ex:
             await self.ex.close()
 
     def set_symbol(self, symbol):
@@ -136,7 +136,7 @@ class exchange(object):
     '''
     async def load_markets(self):
         #logger.debug(self.to_string() + "load_markets() start")
-        if self.ex.markets is None or len(self.ex.markets) <= 0:
+        if not self.ex.markets or len(self.ex.markets) <= 0:
             await self.ex.load_markets()
             #await self.ex.fetch_markets()
             #logger.debug(self.to_string() + "load_markets() markets={0}".format(self.ex.markets))
@@ -220,7 +220,7 @@ class exchange(object):
                 break
             data_part = sorted(data_part, key=lambda x: x[0])
             data.extend(data_part)
-            if since_ms is None:
+            if not since_ms:
                 break
             since_ms = data[-1][0] + 1
             if since_ms >= arrow.utcnow().shift(minutes=-util.TimeFrame_Minutes[timeframe] * 2).timestamp * 1000:
@@ -289,7 +289,7 @@ class exchange(object):
             except:
                 logger.error(traceback.format_exc())
                 break
-        if not self.ex is None:
+        if not self.ex:
             await self.ex.close()
         logger.info(self.to_string() + "run() end")
 

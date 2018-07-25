@@ -41,7 +41,7 @@ class db_mysql():
         self.cursor = None
 
     def get_conn(self):
-        if db_mysql.__pool is None:
+        if not db_mysql.__pool:
             db_mysql.__pool = DBUtils.PooledDB(creator = pymysql,
                 mincached = self.mincached,
                 maxcached = self.maxcached,
@@ -54,9 +54,9 @@ class db_mysql():
                 charset = self.charset,
                 cursorclass = pymysql.cursors
                 )
-        if self.conn is None:
+        if not self.conn:
             self.conn = db_mysql.__pool.connection()
-        if self.cursor is None:
+        if not self.cursor:
             self.cursor = self.conn.cursor()
         if not self.cursor:
             logger.info('数据库连接不上')
@@ -86,7 +86,7 @@ class db_mysql():
             logger.debug(sql)
             try:
                 self.get_conn()
-                if param is None:
+                if not param:
                     count = self.cursor.execute(sql)
                 else:
                     count = self.cursor.execute(sql, param)

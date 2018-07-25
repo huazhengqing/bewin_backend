@@ -74,11 +74,11 @@ def handler(event, context):
         logger.debug("str == \"\"")
         return
     evt = json.loads(str)
-    if evt is None:
+    if not evt:
         logger.debug("evt is None")
         return
     records = evt.get("records")
-    if records is None:
+    if not records:
         logger.debug("records is None")
         return
     logger.debug("len(records)={0}".format(len(records)))
