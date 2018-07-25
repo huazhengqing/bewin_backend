@@ -1,37 +1,33 @@
 from abc import ABC, abstractmethod
-from typing import Dict
+from typing import Dict, List, NamedTuple, Tuple
 from pandas import DataFrame
+from datetime import datetime
+from enum import Enum
+
 
 
 class IStrategy(ABC):
-    _exchange : str
-    _symbol : str
-    _timeframe : int = 1
-    _ma_period : int = 34
-    _channel_period : int = 40
+    def __init__(self)-> None:
+        self.exchange : str
+        self.symbol : str
+        self.timeframe : int = 30
+        self.ma_period : int = 34
+        self.channel_period : int = 40
 
-    _max_open_trades : int = 1
-
-    _stoploss_rate : float = -0.3
-    _trailing_stop_rate : float = -0.3
-    _trailing_stop_rate_positive : float = -0.3
-    _trailing_stop_channel : float = 0.0
-
-    _stoploss: float = 0.0
+        self.stoploss: float = -0.5
+        self.stoploss_absolute: float = 0
 
     @abstractmethod
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
         pass
     
     @abstractmethod
-    def long(self, dataframe: DataFrame) -> DataFrame:
+    def buy(self, dataframe: DataFrame) -> DataFrame:
         pass
         
     @abstractmethod
-    def short(self, dataframe: DataFrame) -> DataFrame:
+    def sell(self, dataframe: DataFrame) -> DataFrame:
         pass
 
-    @abstractmethod
-    def close(self, dataframe: DataFrame) -> DataFrame:
-        pass
-
+    def get_strategy_name(self) -> str:
+        return self.__class__.__name__

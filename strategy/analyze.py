@@ -22,6 +22,7 @@ import util
 import db
 from db.datahub import datahub
 from exchange.exchange import exchange
+from exchange import parse_ohlcv_dataframe
 logger = util.get_log(__name__)
 
 
@@ -35,6 +36,7 @@ class analyze(object):
         self.ex = exchange(ex_id)
         self.symbol = symbol
         self.timeframe = timeframe
+
         self.strategy = strategy
         if self.strategy is None:
             raise Exception(self.to_string() + "strategy is None")
@@ -53,61 +55,43 @@ class analyze(object):
     def load_ohlcv_from_db(self):
         #logger.debug(self.to_string() + "load_ohlcv_from_db() start")
         list_ohlcv = []
-        s = db.Session()
-        for t_ohlcv in s.query(db.t_ohlcv).filter(
+        for t_ohlcv in db.Session().query(db.t_ohlcv).filter(
             db.t_ohlcv.f_ex_id == self.ex_id,
             db.t_ohlcv.f_symbol == self.symbol,
             db.t_ohlcv.f_timeframe == self.timeframe
-            ).order_by(desc(db.t_ohlcv.f_ts)).limit(300):
+        ).order_by(desc(db.t_ohlcv.f_ts)).limit(300):
             list_ohlcv.append([t_ohlcv.f_ts, t_ohlcv.f_o, t_ohlcv.f_h, t_ohlcv.f_l, t_ohlcv.f_c, t_ohlcv.f_v])
         logger.debug(self.to_string() + "load_ohlcv_from_db() end  len={0} ".format(len(list_ohlcv)))
         return list_ohlcv
+ 
 
-    @staticmethod
-    def parse_ohlcv_dataframe(list_ohlcv: list) -> DataFrame:
-        logger.debug("parse_ohlcv_dataframe() start  len={0} ".format(len(list_ohlcv)))
-        cols = ['date', 'open', 'high', 'low', 'close', 'volume']
-        frame = DataFrame(list_ohlcv, columns=cols)
-        frame['date'] = to_datetime(frame['date'],
-                                    unit='ms',
-                                    utc=True,
-                                    infer_datetime_format=True)
-        frame = frame.groupby(by='date', as_index=False, sort=True).agg({
-            'open': 'first',
-            'high': 'max',
-            'low': 'min',
-            'close': 'last',
-            'volume': 'max',
-        })
-        frame.drop(frame.tail(1).index, inplace=True) 
-        logger.debug("parse_ohlcv_dataframe() end  len(frame)={0} ".format(len(frame)))
-        return frame
 
-    def calc_signal(self, ohlcv : List[Dict]) -> Tuple[bool, bool, bool]:
+    def calc_signal(self, ohlcv : List[Dict]) -> Tuple[bool, bool]:
         self.ohlcv_list.extend(ohlcv)
-        if self.ohlcv_list is None or len(self.ohlcv_list) <= 10:
-            return (False, False, False)
+        if len(self.ohlcv_list) <= 30:
+            return (False, False)
         try:
-            self.dataframe = self.parse_ohlcv_dataframe(self.ohlcv_list)
+            self.dataframe = parse_ohlcv_dataframe(self.ohlcv_list)
             self.dataframe = self.strategy.calc_indicators(self.dataframe)
-            self.dataframe = self.strategy.long(self.dataframe)
-            self.dataframe = self.strategy.short(self.dataframe)
-            self.dataframe = self.strategy.close(self.dataframe)
+            self.dataframe = self.strategy.buy(self.dataframe)
+            self.dataframe = self.strategy.sell(self.dataframe)
         except Exception as e:
             logger.error(traceback.format_exc())
-            logger.warning(self.to_string() +  'run() Exception= {0}'.format(e))
-            return (False, False, False)
+            logger.warning(self.to_string() +  'calc_signal() Exception= {0}'.format(e))
+            return (False, False)
         if self.dataframe.empty:
-            return (False, False, False)
+            return (False, False)
         latest = self.dataframe.iloc[-1]
         signal_date = arrow.get(latest['date'])
-        if signal_date < (arrow.utcnow().shift(minutes=-(self.timeframe * 2 + 5))):
-            logger.warning(self.to_string() +  'run() ohlcv is old = {0}m'.format((arrow.utcnow() - signal_date).seconds // 60))
-            return (False, False, False)
+        if signal_date < (arrow.utcnow().shift(minutes=-(self.timeframe * 2))):
+            logger.warning(self.to_string() +  'calc_signal() ohlcv is old = {0}'.format(latest['date']))
+            return (False, False)
         if (self.userid == 0):
             self.update_db()
-        (long, short, close) = latest["long"] == 1, latest["short"] == 1, latest["close"] == 1
-        return (long, short, close)
+        (buy, sell) = latest["buy"] == 1, latest["sell"] == 1
+        return (buy, sell)
+
+
 
     def update_db(self):
         #logger.debug(self.to_string() + "update_db() start  ")
@@ -119,7 +103,7 @@ class analyze(object):
             db.t_symbols_analyze.f_ex_id == str(self.ex_id),
             db.t_symbols_analyze.f_symbol == str(self.symbol),
             db.t_symbols_analyze.f_timeframe == int(self.timeframe)
-            ).first()
+        ).first()
         if t_symbols_analyze is None:
             #logger.debug(self.to_string() + "update_db() t_symbols_analyze is None  ")
             t_symbols_analyze = db.t_symbols_analyze(
