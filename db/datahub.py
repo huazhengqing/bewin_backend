@@ -71,7 +71,7 @@ class datahub():
         endpoint = conf_aliyun_datahub['dev_endpoint']
         self.project_name = conf_aliyun_datahub['dev_project']
         if conf.dev_or_product == 2:
-            logger.debug(self.to_string() + "product ! ")
+            logger.debug("product ! ")
             access_id = conf_aliyun_datahub['product_access_id']
             access_key = conf_aliyun_datahub['product_access_key']
             endpoint = conf_aliyun_datahub['product_endpoint']
