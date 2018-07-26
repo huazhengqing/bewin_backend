@@ -19,7 +19,7 @@ logger = util.get_log(__name__)
 ids = []
 fetcher = fetch_base()
 tasks = []
-tasks.append(asyncio.ensure_future(fetcher.run_fetch_markets_to_db(ids)))
+tasks.append(asyncio.ensure_future(fetcher.fetch_markets_to_db(ids)))
 
 pending = asyncio.Task.all_tasks()
 loop = asyncio.get_event_loop()

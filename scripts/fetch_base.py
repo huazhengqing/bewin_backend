@@ -44,6 +44,9 @@ class fetch_base():
     def to_string(self):
         return "fetch_base[] "
 
+
+
+
     def init_exchange(self, id):
         if id in ccxt.exchanges:
             if not self.exchanges.get(id):
@@ -63,6 +66,11 @@ class fetch_base():
         for ex in self.exchanges.values():
             await ex.close()
 
+
+
+
+
+
     async def fetch_markets_by_id(self, id):
         if id in ccxt.exchanges:
             #logger.debug(self.to_string() + "fetch_markets_to_db({0})".format(id))
@@ -72,7 +80,8 @@ class fetch_base():
                 await ex.load_markets()
             except Exception as e:
                 #logger.warn(traceback.format_exc())
-                logger.warn(self.to_string() + "fetch_exchanges({0}) Exception={1}".format(id, e))
+                #logger.warn(self.to_string() + "fetch_exchanges({0}) Exception={1}".format(id, e))
+                logger.warn(self.to_string() + "fetch_exchanges({0}) Exception ".format(id))
                 await ex.close()
                 return
             t_exchanges = db.t_exchanges(
@@ -142,7 +151,7 @@ class fetch_base():
     '''
     async def fetch_tickers(self, ex_id, topic, shards):
         # 降低 CPU ，暂时性
-        await asyncio.sleep(10)
+        await asyncio.sleep(5)
 
         self.init_exchange(ex_id)
         #logger.debug(self.to_string() + "fetch_tickers({0})".format(ex_id))
@@ -153,14 +162,16 @@ class fetch_base():
                     rs = await self.fetch_ticker(ex_id, topic, shards, symbol)
                     records.extend(rs)
                 except ccxt.RequestTimeout:
-                    logger.error(traceback.format_exc())
+                    #logger.error(traceback.format_exc())
+                    logger.info(self.to_string() + "fetch_tickers() fetch_ticker({0},{1}) RequestTimeout ".format(ex_id, symbol))
                     await asyncio.sleep(10)
                 except ccxt.DDoSProtection:
-                    logger.error(traceback.format_exc())
+                    #logger.error(traceback.format_exc())
+                    logger.info(self.to_string() + "fetch_tickers() fetch_ticker({0},{1}) DDoSProtection ".format(ex_id, symbol))
                     await asyncio.sleep(10)
-                except Exception:
-                    logger.error(traceback.format_exc())
-                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1})".format(ex_id, symbol))
+                except Exception as e:
+                    #logger.error(traceback.format_exc())
+                    logger.error(self.to_string() + "fetch_tickers() fetch_ticker({0},{1}) Exception={2}".format(ex_id, symbol, e))
                     await asyncio.sleep(10)
                 except:
                     logger.error(traceback.format_exc())
@@ -241,6 +252,13 @@ class fetch_base():
         records.append(record)
         return records
 
+
+
+
+
+
+
+
     '''
     ['f_symbol', 'f_ex1', 'f_ex1_name', 'f_ex1_bid', 'f_ex1_ts', 'f_ex1_fee', 'f_ex2', 'f_ex2_name', 'f_ex2_ask', 'f_ex2_ts', 'f_ex2_fee', 'f_ts', 'f_spread', 'f_fee', 'f_profit', 'f_profit_p', 'f_ts_update']
     '''
@@ -320,6 +338,12 @@ class fetch_base():
         wait(all_task, return_when=ALL_COMPLETED)
     '''
 
+
+
+
+
+
+
     '''
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
     '''
@@ -328,7 +352,7 @@ class fetch_base():
         if not self.exchanges[ex_id].has_api('fetchOHLCV'):
             logger.warn(self.to_string() + "run_fetch_ohlcv({0}) NOT has interface".format(ex_id))
             return
-        logger.debug(self.to_string() + "run_fetch_ohlcv({0})".format(ex_id))
+        #logger.debug(self.to_string() + "run_fetch_ohlcv({0})".format(ex_id))
         '''
         if not self.exchanges[ex_id].ex.timeframes or timeframe_str not in self.exchanges[ex_id].ex.timeframes:
             logger.info(self.to_string() + "run_fetch_ohlcv({0}) NOT has timeframe={1}".format(ex_id, timeframe_str))
@@ -336,7 +360,7 @@ class fetch_base():
         '''
         if not symbols or len(symbols) <= 0:
             symbols = [k for k in fetch_base.__ex_symbol_fee[ex_id].keys()]
-        logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols)={3}".format(ex_id, topic_name, timeframe_str, len(symbols)))
+        #logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols)={3}".format(ex_id, topic_name, timeframe_str, len(symbols)))
         
         symbols_todu = []
         s = 0
@@ -344,7 +368,7 @@ class fetch_base():
             if s % max_split_count == split_i:
                 symbols_todu.append(symbol)
             s = s + 1
-        logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols_todu)={3}".format(ex_id, topic_name, timeframe_str, len(symbols_todu)))
+        #logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols_todu)={3}".format(ex_id, topic_name, timeframe_str, len(symbols_todu)))
         if len(symbols_todu) <= 0:
             return
 
@@ -356,9 +380,18 @@ class fetch_base():
             for symbol in symbols_todu:
                 try:
                     data = await self.exchanges[ex_id].fetch_ohlcv(symbol, timeframe_str, since_ms)
-                except:
-                    logger.error(traceback.format_exc())
-                    await asyncio.sleep(15)
+                except ccxt.RequestTimeout:
+                    logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols_todu)={3} symbol={4} RequestTimeout ".format(ex_id, topic_name, timeframe_str, len(symbols_todu), symbol))
+                    await asyncio.sleep(10)
+                    continue
+                except ccxt.DDoSProtection:
+                    logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols_todu)={3} symbol={4} RequestTimeout ".format(ex_id, topic_name, timeframe_str, len(symbols_todu), symbol))
+                    await asyncio.sleep(10)
+                    continue
+                except Exception as e:
+                    #logger.error(traceback.format_exc())
+                    logger.debug(self.to_string() + "run_fetch_ohlcv({0},{1},{2}) len(symbols_todu)={3} Exception={4}".format(ex_id, topic_name, timeframe_str, len(symbols_todu), e))
+                    await asyncio.sleep(10)
                     continue
                 f_ts_update = arrow.utcnow().timestamp
                 #logger.debug(self.to_string() + "run_fetch_ohlcv() f_ts_update={0}".format(f_ts_update))
@@ -379,7 +412,7 @@ class fetch_base():
                 g_datahub.pub_topic(topic_name, records)
                 await asyncio.sleep(3)
             since_ms = ts_start
-            await asyncio.sleep(1)
+            await asyncio.sleep(3)
 
 
 

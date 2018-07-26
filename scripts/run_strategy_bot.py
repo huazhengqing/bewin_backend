@@ -23,8 +23,6 @@ logger = util.get_log(__name__)
 
 
 bot = strategy_bot()
-
-
 thread_fetch = threading.Thread(target=g_datahub.run_get_topic, args=("t_ohlcv", bot.topic_records_get))
 thread_fetch.start()
 
