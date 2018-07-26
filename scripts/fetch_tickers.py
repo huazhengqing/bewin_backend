@@ -30,7 +30,8 @@ tasks = []
 for id in ids:
     tasks.append(asyncio.ensure_future(g_datahub.run_pub_topic(id, "t_ticker", fetcher.fetch_tickers)))
 
-#tasks.append(asyncio.ensure_future(fetcher.run_calc_spread()))
+#for i in range(5):
+#    tasks.append(asyncio.ensure_future(fetcher.run_calc_spread()))
 
 
 

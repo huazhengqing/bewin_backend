@@ -98,7 +98,7 @@ class reaper_trend(IStrategy):
 
         df = df.drop(columns=['open', 'high', 'low', 'close'])
 
-        df = df.resample(self.ticker_interval[:-1] + 'min')
+        df = df.resample(str(self.timeframe) + 'min')
         df = df.interpolate(method='time')
         df['date'] = df.index
         df.index = range(len(df))

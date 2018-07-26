@@ -46,6 +46,9 @@ class analyze(object):
 
         self.ohlcv_list = self.load_ohlcv_from_db()
         self.dataframe = None
+
+        self.symbols_analyze = None
+        self.load_symbols_analyze()
         
 
     def to_string(self):
@@ -60,9 +63,50 @@ class analyze(object):
             db.t_ohlcv.f_timeframe == self.timeframe
         ).order_by(desc(db.t_ohlcv.f_ts)).limit(300):
             list_ohlcv.append([t_ohlcv.f_ts, t_ohlcv.f_o, t_ohlcv.f_h, t_ohlcv.f_l, t_ohlcv.f_c, t_ohlcv.f_v])
-        logger.debug(self.to_string() + "load_ohlcv_from_db() end  len={0} ".format(len(list_ohlcv)))
+        if len(list_ohlcv) < 60:
+            logger.info(self.to_string() + "load_ohlcv_from_db() end  len={0} ".format(len(list_ohlcv)))
         return list_ohlcv
  
+    def load_symbols_analyze(self):
+        if self.userid != 0:
+            return
+        self.symbols_analyze = db.Session().query(db.self.symbols_analyze).filter(
+            db.self.symbols_analyze.f_ex_id == str(self.ex_id),
+            db.self.symbols_analyze.f_symbol == str(self.symbol),
+            db.self.symbols_analyze.f_timeframe == int(self.timeframe)
+        ).first()
+        
+        if not self.symbols_analyze:
+            #logger.debug(self.to_string() + "update_db() self.symbols_analyze is None  ")
+            self.symbols_analyze = db.self.symbols_analyze(
+                f_ex_id = self.ex_id,
+                f_symbol = self.symbol,
+                f_timeframe = int(self.timeframe),
+                f_bid = 0.0,
+                f_ask = 0.0,
+                f_spread = 0.0,
+                f_bar_trend = 0,
+                f_volume_mean = 0.0,
+                f_volume = 0.0,
+                f_ma_period = 0,
+                f_ma_up = 0.0,
+                f_ma_low = 0.0,
+                f_ma_trend = 0,
+                f_channel_period = 0,
+                f_channel_up = 0.0,
+                f_channel_low = 0.0,
+                f_breakout_trend = 0,
+                f_breakout_ts = 0,
+                f_breakout_price = 0.0,
+                f_breakout_volume = 0.0,
+                f_breakout_volume_rate = 0.0,
+                f_breakout_price_highest = 0.0,
+                f_breakout_price_highest_ts = 0,
+                f_breakout_rate = 0.0,
+                f_breakout_rate_max = 0.0,
+                f_recommend = 0.0
+            )
+            
 
 
     def calc_signal(self, ohlcv : List[Dict]) -> Tuple[bool, bool]:
@@ -93,134 +137,116 @@ class analyze(object):
 
 
     def update_db(self):
+        if self.userid != 0:
+            return
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
         if latest['ma_high'] == 'nan' or latest['max'] == 'nan' or latest['volume_mean'] == 'nan':
             return
-        s = db.Session()
-        t_symbols_analyze = s.query(db.t_symbols_analyze).filter(
-            db.t_symbols_analyze.f_ex_id == str(self.ex_id),
-            db.t_symbols_analyze.f_symbol == str(self.symbol),
-            db.t_symbols_analyze.f_timeframe == int(self.timeframe)
-        ).first()
-        if not t_symbols_analyze:
-            #logger.debug(self.to_string() + "update_db() t_symbols_analyze is None  ")
-            t_symbols_analyze = db.t_symbols_analyze(
-                f_ex_id = self.ex_id,
-                f_symbol = self.symbol,
-                f_timeframe = int(self.timeframe),
-                f_bid = 0.0,
-                f_ask = 0.0,
-                f_spread = 0.0,
-                f_bar_trend = 0,
-                f_volume_mean = 0.0,
-                f_volume = 0.0,
-                f_ma_period = 0,
-                f_ma_up = 0.0,
-                f_ma_low = 0.0,
-                f_ma_trend = 0,
-                f_channel_period = 0,
-                f_channel_up = 0.0,
-                f_channel_low = 0.0,
-                f_breakout_trend = 0,
-                f_breakout_ts = 0,
-                f_breakout_price = 0.0,
-                f_breakout_volume = 0.0,
-                f_breakout_volume_rate = 0.0,
-                f_breakout_price_highest = 0.0,
-                f_breakout_price_highest_ts = 0,
-                f_breakout_rate = 0.0,
-                f_breakout_rate_max = 0.0,
-                f_recommend = 0.0
-            )
-        #logger.debug(self.to_string() + "update_db() t_symbols_analyze  ")
-        t_symbols_analyze.f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
-        t_symbols_analyze.f_volume_mean = float(latest['volume_mean'])
-        t_symbols_analyze.f_volume = float(latest['volume'])
-        t_symbols_analyze.f_ma_period = self.strategy._ma_period
-        t_symbols_analyze.f_ma_up = float(latest['ma_high'])
-        t_symbols_analyze.f_ma_low = float(latest['ma_low'])
-        t_symbols_analyze.f_ma_trend = float(latest['ma_trend'])
-        t_symbols_analyze.f_channel_period = self.strategy._channel_period
-        t_symbols_analyze.f_channel_up = float(latest['max'])
-        t_symbols_analyze.f_channel_low = float(latest['min'])
+            
+        #logger.debug(self.to_string() + "update_db() self.symbols_analyze  ")
+        self.symbols_analyze.f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
+        self.symbols_analyze.f_volume_mean = float(latest['volume_mean'])
+        self.symbols_analyze.f_volume = float(latest['volume'])
+        self.symbols_analyze.f_ma_period = self.strategy.ma_period
+        self.symbols_analyze.f_ma_up = float(latest['ma_high'])
+        self.symbols_analyze.f_ma_low = float(latest['ma_low'])
+        self.symbols_analyze.f_ma_trend = int(latest['ma_trend'])
+        self.symbols_analyze.f_channel_period = self.strategy.channel_period
+        self.symbols_analyze.f_channel_up = float(latest['max'])
+        self.symbols_analyze.f_channel_low = float(latest['min'])
 
 
         date_ms = arrow.get(latest['date']).timestamp * 1000
-        if t_symbols_analyze.f_breakout_trend == 0 or date_ms - t_symbols_analyze.f_breakout_ts > 3*60*60*1000:
-            if float(latest['high']) >= t_symbols_analyze.f_channel_up:
-                t_symbols_analyze.f_breakout_trend = 1
-                t_symbols_analyze.f_breakout_price = float(latest['close'])
-                t_symbols_analyze.f_breakout_price_highest = t_symbols_analyze.f_channel_up
-                t_symbols_analyze.f_breakout_rate = t_symbols_analyze.f_channel_up / t_symbols_analyze.f_breakout_price
-            elif float(latest['low']) <= t_symbols_analyze.f_channel_low:
-                t_symbols_analyze.f_breakout_trend = -1
-                t_symbols_analyze.f_breakout_price = float(latest['close'])
-                t_symbols_analyze.f_breakout_price_highest = t_symbols_analyze.f_channel_low
-                t_symbols_analyze.f_breakout_rate = t_symbols_analyze.f_channel_low / t_symbols_analyze.f_breakout_price
-            if t_symbols_analyze.f_breakout_trend != 0:
-                t_symbols_analyze.f_breakout_ts = date_ms
-                t_symbols_analyze.f_breakout_volume = float(latest['volume'])
-                t_symbols_analyze.f_breakout_volume_rate = t_symbols_analyze.f_breakout_volume / t_symbols_analyze.f_volume_mean
-                t_symbols_analyze.f_breakout_price_highest_ts =  t_symbols_analyze.f_breakout_ts
-                t_symbols_analyze.f_breakout_rate_max = t_symbols_analyze.f_breakout_rate
-        elif t_symbols_analyze.f_breakout_trend == 1:
-            if t_symbols_analyze.f_channel_up > t_symbols_analyze.f_breakout_price_highest:
-                t_symbols_analyze.f_breakout_price_highest = max(t_symbols_analyze.f_breakout_price_highest, t_symbols_analyze.f_channel_up)
-                t_symbols_analyze.f_breakout_price_highest_ts = date_ms
-            t_symbols_analyze.f_breakout_rate_max = max(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
-        elif t_symbols_analyze.f_breakout_trend == -1:
-            if t_symbols_analyze.f_channel_low < t_symbols_analyze.f_breakout_price_highest:
-                t_symbols_analyze.f_breakout_price_highest = min(t_symbols_analyze.f_breakout_price_highest, t_symbols_analyze.f_channel_low)
-                t_symbols_analyze.f_breakout_price_highest_ts = date_ms
-            t_symbols_analyze.f_breakout_rate_max = min(t_symbols_analyze.f_breakout_rate_max, t_symbols_analyze.f_breakout_rate)
-        s.merge(t_symbols_analyze)
-        s.flush()
-        logger.debug(self.to_string() + "update_db() t_symbols_analyze  flush  ")
+        if self.symbols_analyze.f_breakout_trend == 0 or date_ms - self.symbols_analyze.f_breakout_ts > 3*60*60*1000:
+            if float(latest['high']) >= self.symbols_analyze.f_channel_up:
+                self.symbols_analyze.f_breakout_trend = 1
+                self.symbols_analyze.f_breakout_price = float(latest['close'])
+                self.symbols_analyze.f_breakout_price_highest = self.symbols_analyze.f_channel_up
+                self.symbols_analyze.f_breakout_rate = self.symbols_analyze.f_channel_up / self.symbols_analyze.f_breakout_price
+            elif float(latest['low']) <= self.symbols_analyze.f_channel_low:
+                self.symbols_analyze.f_breakout_trend = -1
+                self.symbols_analyze.f_breakout_price = float(latest['close'])
+                self.symbols_analyze.f_breakout_price_highest = self.symbols_analyze.f_channel_low
+                self.symbols_analyze.f_breakout_rate = self.symbols_analyze.f_channel_low / self.symbols_analyze.f_breakout_price
+            if self.symbols_analyze.f_breakout_trend != 0:
+                self.symbols_analyze.f_breakout_ts = date_ms
+                self.symbols_analyze.f_breakout_volume = float(latest['volume'])
+                self.symbols_analyze.f_breakout_volume_rate = self.symbols_analyze.f_breakout_volume / self.symbols_analyze.f_volume_mean
+                self.symbols_analyze.f_breakout_price_highest_ts =  self.symbols_analyze.f_breakout_ts
+                self.symbols_analyze.f_breakout_rate_max = self.symbols_analyze.f_breakout_rate
+        elif self.symbols_analyze.f_breakout_trend == 1:
+            if self.symbols_analyze.f_channel_up > self.symbols_analyze.f_breakout_price_highest:
+                self.symbols_analyze.f_breakout_price_highest = max(self.symbols_analyze.f_breakout_price_highest, self.symbols_analyze.f_channel_up)
+                self.symbols_analyze.f_breakout_price_highest_ts = date_ms
+            self.symbols_analyze.f_breakout_rate_max = max(self.symbols_analyze.f_breakout_rate_max, self.symbols_analyze.f_breakout_rate)
+        elif self.symbols_analyze.f_breakout_trend == -1:
+            if self.symbols_analyze.f_channel_low < self.symbols_analyze.f_breakout_price_highest:
+                self.symbols_analyze.f_breakout_price_highest = min(self.symbols_analyze.f_breakout_price_highest, self.symbols_analyze.f_channel_low)
+                self.symbols_analyze.f_breakout_price_highest_ts = date_ms
+            self.symbols_analyze.f_breakout_rate_max = min(self.symbols_analyze.f_breakout_rate_max, self.symbols_analyze.f_breakout_rate)
+        
+        try:
+            db.Session().merge(self.symbols_analyze)
+            #db.Session().flush()
+        except Exception as e:
+            logger.debug(self.to_string() + "update_db() Exception={0}".format(e))
+            return
 
-        self.pub_topic(t_symbols_analyze)
+        logger.debug(self.to_string() + "update_db() self.symbols_analyze  flush  ")
+
+        self.pub_topic()
+
+
 
     '''
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_bid', 'f_ask', 'f_spread', 'f_bar_trend', 'f_volume_mean', 'f_volume', 'f_ma_period', 'f_ma_up', 'f_ma_low', 'f_ma_trend', 'f_channel_period', 'f_channel_up', 'f_channel_low', 'f_breakout_trend', 'f_breakout_ts', 'f_breakout_price', 'f_breakout_volume', 'f_breakout_volume_rate', 'f_breakout_price_highest', 'f_breakout_price_highest_ts', 'f_breakout_rate', 'f_breakout_rate_max', 'f_ts_update']
     '''
-    def pub_topic(self, t_symbols_analyze):
-        #logger.debug(self.to_string() + "pub_topic() t_symbols_analyze={0}".format(t_symbols_analyze))
+    def pub_topic(self):
+        #logger.debug(self.to_string() + "pub_topic() self.symbols_analyze={0}".format(self.symbols_analyze))
         if self.userid != 0:
             return
         topic_name = "t_symbols_analyze"
         topic, shards = g_datahub.get_topic(topic_name)
         record = TupleRecord(schema=topic.record_schema)
         record.values = [
-            t_symbols_analyze.f_ex_id,
-            t_symbols_analyze.f_symbol,
-            t_symbols_analyze.f_timeframe,
-            t_symbols_analyze.f_bid,
-            t_symbols_analyze.f_ask,
-            t_symbols_analyze.f_spread,
-            t_symbols_analyze.f_bar_trend,
-            t_symbols_analyze.f_volume_mean,
-            t_symbols_analyze.f_volume,
-            t_symbols_analyze.f_ma_period,
-            t_symbols_analyze.f_ma_up,
-            t_symbols_analyze.f_ma_low,
-            t_symbols_analyze.f_ma_trend,
-            t_symbols_analyze.f_channel_period,
-            t_symbols_analyze.f_channel_up,
-            t_symbols_analyze.f_channel_low,
-            t_symbols_analyze.f_breakout_trend,
-            t_symbols_analyze.f_breakout_ts,
-            t_symbols_analyze.f_breakout_price,
-            t_symbols_analyze.f_breakout_volume,
-            t_symbols_analyze.f_breakout_volume_rate,
-            t_symbols_analyze.f_breakout_price_highest,
-            t_symbols_analyze.f_breakout_price_highest_ts,
-            t_symbols_analyze.f_breakout_rate,
-            t_symbols_analyze.f_breakout_rate_max,
+            self.symbols_analyze.f_ex_id,
+            self.symbols_analyze.f_symbol,
+            self.symbols_analyze.f_timeframe,
+            self.symbols_analyze.f_bid,
+            self.symbols_analyze.f_ask,
+            self.symbols_analyze.f_spread,
+            self.symbols_analyze.f_bar_trend,
+            self.symbols_analyze.f_volume_mean,
+            self.symbols_analyze.f_volume,
+            self.symbols_analyze.f_ma_period,
+            self.symbols_analyze.f_ma_up,
+            self.symbols_analyze.f_ma_low,
+            self.symbols_analyze.f_ma_trend,
+            self.symbols_analyze.f_channel_period,
+            self.symbols_analyze.f_channel_up,
+            self.symbols_analyze.f_channel_low,
+            self.symbols_analyze.f_breakout_trend,
+            self.symbols_analyze.f_breakout_ts,
+            self.symbols_analyze.f_breakout_price,
+            self.symbols_analyze.f_breakout_volume,
+            self.symbols_analyze.f_breakout_volume_rate,
+            self.symbols_analyze.f_breakout_price_highest,
+            self.symbols_analyze.f_breakout_price_highest_ts,
+            self.symbols_analyze.f_breakout_rate,
+            self.symbols_analyze.f_breakout_rate_max,
             arrow.utcnow().timestamp * 1000
         ]
         record.shard_id = shards[randint(1, 1000) % len(shards)].shard_id
         g_datahub.pub_topic(topic_name, [record])
         
+
+
+
+
+
+
+
 
 
 

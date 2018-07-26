@@ -98,6 +98,7 @@ class fetch_base():
             )
             #logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_exchanges()".format(id))
             db.Session().merge(t_exchanges)
+            db.Session().flush()
 
             fee_maker = ex.ex.fees['trading']['maker'] if ex.ex.fees['trading'].get('maker') else 0
             fee_taker = ex.ex.fees['trading']['taker'] if ex.ex.fees['trading'].get('taker') else 0
@@ -126,6 +127,7 @@ class fetch_base():
                 )
                 #logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_markets({1})".format(id, symbol))
                 db.Session().merge(t_markets)
+                db.Session().flush()
             logger.debug(self.to_string() + "fetch_markets_to_db({0}) db.t_markets len = {1}".format(id, len(ex.ex.markets)))
             await ex.close()
 
@@ -151,13 +153,17 @@ class fetch_base():
     '''
     async def fetch_tickers(self, ex_id, topic, shards):
         # 降低 CPU ，暂时性
-        await asyncio.sleep(5)
+        await asyncio.sleep(30)
 
         self.init_exchange(ex_id)
         #logger.debug(self.to_string() + "fetch_tickers({0})".format(ex_id))
         records = []
         if not self.exchanges[ex_id].has_api('fetchTickers'):
             for symbol in fetch_base.__ex_symbol_fee[ex_id].keys():
+                # 降低 CPU ，暂时性
+                await asyncio.sleep(3)
+
+
                 try:
                     rs = await self.fetch_ticker(ex_id, topic, shards, symbol)
                     records.extend(rs)
@@ -211,7 +217,7 @@ class fetch_base():
                 "f_bid": f_bid,
                 "f_ask": f_ask,
             }
-            await fetch_base.__queue_task_spread.put(v)
+            #await fetch_base.__queue_task_spread.put(v)
         logger.debug(self.to_string() + "fetch_tickers({0}) len(records)={1}".format(ex_id, len(records)))
         return records
 
@@ -248,7 +254,7 @@ class fetch_base():
             "f_bid": f_bid,
             "f_ask": f_ask,
         }
-        await fetch_base.__queue_task_spread.put(v)
+        #await fetch_base.__queue_task_spread.put(v)
         records.append(record)
         return records
 
@@ -263,7 +269,7 @@ class fetch_base():
     ['f_symbol', 'f_ex1', 'f_ex1_name', 'f_ex1_bid', 'f_ex1_ts', 'f_ex1_fee', 'f_ex2', 'f_ex2_name', 'f_ex2_ask', 'f_ex2_ts', 'f_ex2_fee', 'f_ts', 'f_spread', 'f_fee', 'f_profit', 'f_profit_p', 'f_ts_update']
     '''
     async def run_calc_spread(self, topic_name="t_spread"):
-        logger.debug(self.to_string() + "run_calc_spread()")
+        #logger.debug(self.to_string() + "run_calc_spread()")
         topic, shards = g_datahub.get_topic(topic_name)
         shard_count = len(shards)
         while True:
@@ -272,12 +278,13 @@ class fetch_base():
                 qsize = fetch_base.__queue_task_spread.qsize()
                 if qsize >= 100:
                     logger.warn(self.to_string() + "run_calc_spread() qsize={0}".format(qsize))
-                    '''
-                    for i in range(10000):
-                        fetch_base.__queue_task_spread.get()
-                        fetch_base.__queue_task_spread.task_done()
-                    continue
-                    '''
+
+                # for test
+                await fetch_base.__queue_task_spread.get()
+                continue
+
+
+
                 # [f_ex_id, f_symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume]
                 task_record = await fetch_base.__queue_task_spread.get()
                 symbol = task_record[1]

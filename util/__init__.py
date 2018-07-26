@@ -49,18 +49,8 @@ Minutes_TimeFrame = {
     10080: '1w',
 }
 
-System_Strategy_ex = ["okex"]
-System_Strategy_quote = ["ETH"]
-System_Strategy_Minutes_TimeFrame = {
-    #30: '30m',
-    60: '1h',
-    #240: '4h',
-    #1440: '1d',
-}
-System_Strategy_TimeFrame_Minutes = {
-    '1h': 60,
-    '1d': 1440,
-}
+
+
 
 
 def get_log(name = __name__):

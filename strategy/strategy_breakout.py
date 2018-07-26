@@ -17,13 +17,16 @@ logger = util.get_log(__name__)
 
 
 class strategy_breakout(IStrategy):
-    def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
-        dataframe['min'] = ta.MIN(dataframe, timeperiod=self._channel_period).shift(1)
-        dataframe['max'] = ta.MAX(dataframe, timeperiod=self._channel_period).shift(1)
+    def __init__(self)-> None:
+        super(strategy_breakout, self).__init__()
 
-        dataframe['ma_high'] = ta.EMA(dataframe, timeperiod=self._ma_period, price='high')
-        dataframe['ma_low'] = ta.EMA(dataframe, timeperiod=self._ma_period, price='low')
-        dataframe['ma_close'] = ta.EMA(dataframe, timeperiod=self._ma_period, price='close')
+    def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
+        dataframe['min'] = ta.MIN(dataframe, timeperiod=self.channel_period).shift(1)
+        dataframe['max'] = ta.MAX(dataframe, timeperiod=self.channel_period).shift(1)
+
+        dataframe['ma_high'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='high')
+        dataframe['ma_low'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='low')
+        dataframe['ma_close'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='close')
         dataframe.loc[(dataframe['ma_close'].shift(1) < dataframe['ma_close']), 'ma_trend'] = 1
         dataframe.loc[(dataframe['ma_close'].shift(1) > dataframe['ma_close']), 'ma_trend'] = -1
 
@@ -35,7 +38,8 @@ class strategy_breakout(IStrategy):
 
         dataframe['atr'] = qtpylib.atr(dataframe)
 
-        dataframe['volume_mean'] = dataframe['volume'].mean().shift(1)
+        dataframe['volume_mean'] = dataframe['volume'].mean()
+        dataframe['volume_mean'] =  dataframe['volume_mean'].shift(1)
     
         #logger.debug("strategy_breakout() end  dataframe={0} ".format(dataframe))
         return dataframe
