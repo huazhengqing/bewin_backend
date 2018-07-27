@@ -13,10 +13,9 @@ from datahub.exceptions import DatahubException, ResourceExistException
 from datahub.models import RecordType, FieldType, RecordSchema, BlobRecord, TupleRecord, CursorType
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
-import conf.conf_aliyun
 import conf
-import util
 from conf.conf_aliyun import conf_aliyun_datahub
+import util
 logger = util.get_log(__name__)
 
 
@@ -123,7 +122,7 @@ class datahub():
         return (topic, shards)
     
     def pub_topic(self, topic_name, records):
-        if len(records) <= 0:
+        if not records or len(records) <= 0:
             return
         #logger.debug(self.to_string() + "pub_topic({0}) len(records) = {1}".format(topic_name, len(records)))
         failed_indexs = self.datahub.put_records(self.project_name, topic_name, records)
@@ -240,27 +239,24 @@ class datahub():
     def run_get_topic(self, topic_name, func, *args, **kwargs):
         logger.debug(self.to_string() + "run_get_topic({0},{1})".format(self.project_name, topic_name))
         topic, shards = self.get_topic(topic_name)
-        #logger.debug(self.to_string() + "run_get_topic({0},{1})shards={2}".format(self.project_name, topic_name, shards))
+        shard_id_cursor = dict()
+        for shard in shards:
+            shard_id_cursor[shard.shard_id] = self.datahub.get_cursor(self.project_name, topic_name, shard.shard_id, self.cursor_type).cursor
         while True:
-            for shard in shards:
-                #logger.debug(self.to_string() + "run_get_topic({0},{1})shard_id={2}".format(self.project_name, topic_name, shard_id))
+            for shard_id, cursor in shard_id_cursor.items():
                 try:
-                    cursor = self.datahub.get_cursor(self.project_name, topic_name, shard.shard_id, self.cursor_type).cursor
-                    get_result = self.datahub.get_tuple_records(self.project_name, topic_name, shard.shard_id, topic.record_schema, cursor, self.get_limit_num)
+                    get_result = self.datahub.get_tuple_records(self.project_name, topic_name, shard_id, topic.record_schema, cursor, self.get_limit_num)
+                    shard_id_cursor[shard_id] = get_result.next_cursor
                     if get_result.record_count > 0:
-                        #logger.debug(self.to_string() + "run_get_topic({0},{1})get_result={2}".format(self.project_name, topic_name, get_result.records))
                         func(get_result.records, *args, **kwargs)
-                    #else:
-                        #await asyncio.sleep(0)
-                        #logger.debug(self.to_string() + "run_get_topic({0},{1})  sleep  ".format(self.project_name, topic_name))
-                    cursor = get_result.next_cursor
+                    else:
+                        time.sleep(0.1)
                 except DatahubException as e:
-                    logger.error(traceback.format_exc(e))
-                except Exception:
-                    logger.info(traceback.format_exc())
+                    logger.warn(self.to_string() + "run_get_topic({0},{1}) DatahubException={2}".format(self.project_name, topic_name, e))
+                except Exception as e:
+                    logger.warn(self.to_string() + "run_get_topic({0},{1}) Exception={2}".format(self.project_name, topic_name, e))
                 except:
                     logger.error(traceback.format_exc())
-            #await asyncio.sleep(0)
             
 
 

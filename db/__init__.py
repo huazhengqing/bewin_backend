@@ -185,6 +185,9 @@ class t_markets(_DECL_BASE):
 
 
 
+
+
+
 '''
 CREATE TABLE `t_ohlcv` (
   `f_ex_id` varchar(64) NOT NULL COMMENT '交易所',

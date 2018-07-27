@@ -12,9 +12,7 @@ dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import util
 from fetch_base import fetch_base
-import conf.conf_aliyun
 import conf
-import db
 logger = util.get_log(__name__)
 
 
@@ -34,11 +32,9 @@ since_ms = arrow.utcnow().shift(days=-1).timestamp * 1000
 
 max_split_count = 5
 fetcher = dict()
-for i in range(max_split_count):
-    fetcher[i] = fetch_base()
-
 tasks = []
 for i in range(max_split_count):
+    fetcher[i] = fetch_base()
     for id in ids:
         #for tf in util.TimeFrame_Minutes.keys():
         for tf in conf.System_Strategy_TimeFrame_Minutes.keys():

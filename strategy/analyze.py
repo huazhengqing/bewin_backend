@@ -20,6 +20,7 @@ import conf.conf_aliyun
 import conf
 import util
 import db
+from db.db_ops import g_db_ops
 from db.datahub import g_datahub
 from exchange.exchange import exchange
 from exchange import parse_ohlcv_dataframe
@@ -49,6 +50,8 @@ class analyze(object):
 
         self.symbols_analyze = None
         self.load_symbols_analyze()
+
+        #logger.debug(self.to_string() + "init")
         
 
     def to_string(self):
@@ -57,11 +60,14 @@ class analyze(object):
     def load_ohlcv_from_db(self):
         #logger.debug(self.to_string() + "load_ohlcv_from_db() start")
         list_ohlcv = []
+        bar_count = 100
+        if self.timeframe >= 60:
+            bar_count = 60
         for t_ohlcv in db.Session().query(db.t_ohlcv).filter(
             db.t_ohlcv.f_ex_id == self.ex_id,
             db.t_ohlcv.f_symbol == self.symbol,
             db.t_ohlcv.f_timeframe == self.timeframe
-        ).order_by(desc(db.t_ohlcv.f_ts)).limit(300):
+        ).order_by(desc(db.t_ohlcv.f_ts)).limit(bar_count):
             list_ohlcv.append([t_ohlcv.f_ts, t_ohlcv.f_o, t_ohlcv.f_h, t_ohlcv.f_l, t_ohlcv.f_c, t_ohlcv.f_v])
         if len(list_ohlcv) < 60:
             logger.info(self.to_string() + "load_ohlcv_from_db() end  len={0} ".format(len(list_ohlcv)))
@@ -70,15 +76,15 @@ class analyze(object):
     def load_symbols_analyze(self):
         if self.userid != 0:
             return
-        self.symbols_analyze = db.Session().query(db.self.symbols_analyze).filter(
-            db.self.symbols_analyze.f_ex_id == str(self.ex_id),
-            db.self.symbols_analyze.f_symbol == str(self.symbol),
-            db.self.symbols_analyze.f_timeframe == int(self.timeframe)
+        self.symbols_analyze = db.Session().query(db.t_symbols_analyze).filter(
+            db.t_symbols_analyze.f_ex_id == str(self.ex_id),
+            db.t_symbols_analyze.f_symbol == str(self.symbol),
+            db.t_symbols_analyze.f_timeframe == int(self.timeframe)
         ).first()
         
         if not self.symbols_analyze:
             #logger.debug(self.to_string() + "update_db() self.symbols_analyze is None  ")
-            self.symbols_analyze = db.self.symbols_analyze(
+            self.symbols_analyze = db.t_symbols_analyze(
                 f_ex_id = self.ex_id,
                 f_symbol = self.symbol,
                 f_timeframe = int(self.timeframe),
@@ -141,11 +147,12 @@ class analyze(object):
             return
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
-        if latest['ma_high'] == 'nan' or latest['max'] == 'nan' or latest['volume_mean'] == 'nan':
+        if latest['ma_high'] == 'Nan' or latest['max'] == 'Nan' or latest['volume_mean'] == 'Nan' or latest['ma_trend'] == 'Nan':
+            logger.info(self.to_string() + "update_db() NaN latest={0}".format(latest))
             return
             
         #logger.debug(self.to_string() + "update_db() self.symbols_analyze  ")
-        self.symbols_analyze.f_bar_trend = latest['ha_open'] < latest['ha_close'] and 1 or -1
+        self.symbols_analyze.f_bar_trend = latest['ha_open'] < latest['ha_close'] and int(1) or int(-1)
         self.symbols_analyze.f_volume_mean = float(latest['volume_mean'])
         self.symbols_analyze.f_volume = float(latest['volume'])
         self.symbols_analyze.f_ma_period = self.strategy.ma_period
@@ -155,7 +162,7 @@ class analyze(object):
         self.symbols_analyze.f_channel_period = self.strategy.channel_period
         self.symbols_analyze.f_channel_up = float(latest['max'])
         self.symbols_analyze.f_channel_low = float(latest['min'])
-
+        
 
         date_ms = arrow.get(latest['date']).timestamp * 1000
         if self.symbols_analyze.f_breakout_trend == 0 or date_ms - self.symbols_analyze.f_breakout_ts > 3*60*60*1000:
@@ -172,7 +179,10 @@ class analyze(object):
             if self.symbols_analyze.f_breakout_trend != 0:
                 self.symbols_analyze.f_breakout_ts = date_ms
                 self.symbols_analyze.f_breakout_volume = float(latest['volume'])
-                self.symbols_analyze.f_breakout_volume_rate = self.symbols_analyze.f_breakout_volume / self.symbols_analyze.f_volume_mean
+                if self.symbols_analyze.f_volume_mean > 0:
+                    self.symbols_analyze.f_breakout_volume_rate = self.symbols_analyze.f_breakout_volume / self.symbols_analyze.f_volume_mean
+                else:
+                    self.symbols_analyze.f_breakout_volume_rate = float(1.0)
                 self.symbols_analyze.f_breakout_price_highest_ts =  self.symbols_analyze.f_breakout_ts
                 self.symbols_analyze.f_breakout_rate_max = self.symbols_analyze.f_breakout_rate
         elif self.symbols_analyze.f_breakout_trend == 1:
@@ -186,14 +196,9 @@ class analyze(object):
                 self.symbols_analyze.f_breakout_price_highest_ts = date_ms
             self.symbols_analyze.f_breakout_rate_max = min(self.symbols_analyze.f_breakout_rate_max, self.symbols_analyze.f_breakout_rate)
         
-        try:
-            db.Session().merge(self.symbols_analyze)
-            #db.Session().flush()
-        except Exception as e:
-            logger.debug(self.to_string() + "update_db() Exception={0}".format(e))
-            return
-
-        logger.debug(self.to_string() + "update_db() self.symbols_analyze  flush  ")
+        g_db_ops.put(self.symbols_analyze)
+        
+        logger.debug(self.to_string() + "update_db()  put  ")
 
         self.pub_topic()
 

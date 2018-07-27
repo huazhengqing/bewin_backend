@@ -79,6 +79,15 @@ class strategy_bot(object):
 
 
 
+        self.ex_symbols = util.nesteddict()
+        t_markets = db.Session().query(db.t_markets).all()
+        for t_market in t_markets:
+            if not self.ex_symbols[t_market.f_ex_id]:
+                self.ex_symbols[t_market.f_ex_id] = [t_market.f_symbol]
+            else:
+                self.ex_symbols[t_market.f_ex_id].append(t_market.f_symbol)
+            
+
     async def run_update_config(self):
         while True:
             await self.fetch_balances()
@@ -91,6 +100,16 @@ class strategy_bot(object):
             self.refresh_whitelist_all()
             self.load_system_strategy()
             self.load_user_strategy()
+
+            t_markets = db.Session().query(db.t_markets).all()
+            for t_market in t_markets:
+                if not self.ex_symbols[t_market.f_ex_id]:
+                    self.ex_symbols[t_market.f_ex_id] = [t_market.f_symbol]
+                else:
+                    self.ex_symbols[t_market.f_ex_id].append(t_market.f_symbol)
+
+
+
 
             
     def to_string(self):
@@ -188,11 +207,17 @@ class strategy_bot(object):
         t_markets_list = db.Session().query(db.t_markets).all()
         for t_markets in t_markets_list:
             if t_markets.f_ex_id in conf.System_Strategy_ex:
-                if t_markets.f_quote in conf.System_Strategy_quote:
-                    for tf in conf.System_Strategy_Minutes_TimeFrame.keys():
-                        #logger.debug(self.to_string() + "load_system_strategy() self.user_strategy[{0}][{1}][{2}][{3}] ".format(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf))
-                        a = analyze(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf, strategy_breakout())
-                        self.user_strategy[self.userid_system][t_markets.f_ex_id][t_markets.f_symbol][tf] = a
+
+
+                #if t_markets.f_quote in conf.System_Strategy_quote:
+
+                
+                for tf in conf.System_Strategy_Minutes_TimeFrame.keys():
+                    #logger.debug(self.to_string() + "load_system_strategy() self.user_strategy[{0}][{1}][{2}][{3}] ".format(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf))
+                    a = analyze(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf, strategy_breakout())
+                    self.user_strategy[self.userid_system][t_markets.f_ex_id][t_markets.f_symbol][tf] = a
+
+
         #logger.debug(self.to_string() + "load_system_strategy()  end")
 
 
@@ -287,35 +312,30 @@ class strategy_bot(object):
     '''
     ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
     '''
-    async def topic_records_process(self):
+    async def topic_records_process(self, split_i, max_split_count):
         '''
         读取k线数据，应用量化策略
         '''
-        #logger.debug(self.to_string() + "topic_records_process()")
         while True:
             qsize = self.queue_thread.qsize()
-            #logger.debug(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
             # 数据太多，处理不完
             if qsize >= 30:
                 logger.warn(self.to_string() + "topic_records_process() qsize={0}".format(qsize))
-                '''
-                for i in range(1000):
-                    self.queue_thread.get()
-                    self.queue_thread.task_done()
-                continue
-                '''
             record = self.queue_thread.get()
-            #logger.debug(self.to_string() + "topic_records_process() record={0}".format(record))
             ex_id = record.values[0]
             symbol = record.values[1]
+            if self.ex_symbols[ex_id].index(symbol) % max_split_count != split_i:
+                continue
             tf = record.values[2]
             ohlcv = [record.values[3], record.values[4], record.values[5], record.values[6], record.values[7], record.values[8]]
+            #logger.debug(self.to_string() + "topic_records_process() record={0}".format(record))
             for userid in self.user_config.keys():
                 try:
                     # 止赢 / 止损 / 更新止损线
                     self.check_position(userid, ex_id, symbol, tf, [ohlcv])
-                except:
-                    logger.error(traceback.format_exc())
+                except Exception as e:
+                    #logger.error(traceback.format_exc())
+                    logger.warn(self.to_string() + "topic_records_process({0},{1}) Exception={2}".format(self.split_i, max_split_count, e))
                 try:
                     if userid == 0:
                         # 系统策略，更新计算结果，不下单
@@ -323,18 +343,19 @@ class strategy_bot(object):
                     else:
                         # 用户策略，下单买卖
                         await self.process_strategy_user(userid, ex_id, symbol, tf, [ohlcv])
-                except:
-                    logger.error(traceback.format_exc())
+                except Exception as e:
+                    #logger.error(traceback.format_exc())
+                    logger.warn(self.to_string() + "topic_records_process({0},{1}) Exception={2}".format(self.split_i, max_split_count, e))
                 
 
 
     # ['f_ex_id', 'f_symbol', 'f_timeframe', 'f_ts', 'f_o', 'f_h', 'f_l', 'f_c', 'f_v', 'f_ts_update']
     def process_strategy_system(self, userid, ex_id, symbol, tf, ohlcv_list):
-        #logger.debug(self.to_string() + "process_strategy_system({0},{1},{2},{3},{4}) start".format(userid, ex_id, symbol, tf, ohlcv_list))
         if userid != 0:
             return
         if not self.user_strategy[userid][ex_id][symbol][tf]:
             return
+        #logger.debug(self.to_string() + "process_strategy_system({0},{1},{2},{3},{4}) start".format(userid, ex_id, symbol, tf, ohlcv_list))
         '''
         s_list = self.filter_user_symbol(userid, ex_id, [symbol])
         if len(s_list) <= 0:

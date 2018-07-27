@@ -21,14 +21,15 @@ class strategy_breakout(IStrategy):
         super(strategy_breakout, self).__init__()
 
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
-        dataframe['min'] = ta.MIN(dataframe, timeperiod=self.channel_period).shift(1)
-        dataframe['max'] = ta.MAX(dataframe, timeperiod=self.channel_period).shift(1)
+        dataframe['min'] = ta.MIN(dataframe, timeperiod=self.channel_period, price='low').shift(1)
+        dataframe['max'] = ta.MAX(dataframe, timeperiod=self.channel_period, price='high').shift(1)
 
         dataframe['ma_high'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='high')
         dataframe['ma_low'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='low')
         dataframe['ma_close'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='close')
         dataframe.loc[(dataframe['ma_close'].shift(1) < dataframe['ma_close']), 'ma_trend'] = 1
         dataframe.loc[(dataframe['ma_close'].shift(1) > dataframe['ma_close']), 'ma_trend'] = -1
+        dataframe.loc[(dataframe['ma_close'].shift(1) == dataframe['ma_close']), 'ma_trend'] = 0
 
         heikinashi = qtpylib.heikinashi(dataframe)
         dataframe['ha_open'] = heikinashi['open']
@@ -38,8 +39,8 @@ class strategy_breakout(IStrategy):
 
         dataframe['atr'] = qtpylib.atr(dataframe)
 
-        dataframe['volume_mean'] = dataframe['volume'].mean()
-        dataframe['volume_mean'] =  dataframe['volume_mean'].shift(1)
+        dataframe['volume_mean'] = dataframe['volume'].shift(1).tail(14).mean()
+        
     
         #logger.debug("strategy_breakout() end  dataframe={0} ".format(dataframe))
         return dataframe

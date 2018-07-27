@@ -26,7 +26,7 @@ def parse_ohlcv_dataframe(list_ohlcv: list) -> DataFrame:
         'close': 'last',
         'volume': 'max',
     })
-    frame.drop(frame.tail(1).index, inplace=True) 
+    #frame.drop(frame.tail(1).index, inplace=True) 
     if len(frame) < 60:
         logger.info("parse_ohlcv_dataframe() end  len={0} ".format(len(frame)))
     #logger.debug("parse_ohlcv_dataframe() end  len(frame)={0} ".format(len(frame)))
