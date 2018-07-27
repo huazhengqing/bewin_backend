@@ -1,15 +1,16 @@
 .vscode
 .idea
 
-logs/*
+logs/*.log
 conf/*
+test/*
 
 func/func_python_spread/*
 !func/func_python_spread/*.zip
 !func/func_python_spread/index.py
 sql_blink/*
 sql_mysql/t_user_exchange.sql
-test/*
+
 
 
 

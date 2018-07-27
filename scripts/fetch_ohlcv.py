@@ -38,6 +38,8 @@ for i in range(max_split_count):
     for id in ids:
         #for tf in util.TimeFrame_Minutes.keys():
         for tf in conf.System_Strategy_TimeFrame_Minutes.keys():
+            if id == 'huobipro' and tf == '4h':
+                continue
             tasks.append(asyncio.ensure_future(fetcher[i].run_fetch_ohlcv(id, "t_ohlcv", symbols, tf, since_ms, i, max_split_count)))
 
 

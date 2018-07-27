@@ -228,7 +228,7 @@ class exchange(object):
             since_ms = data[-1][0] + 1
             if since_ms >= arrow.utcnow().shift(minutes=-util.TimeFrame_Minutes[timeframe] * 2).timestamp * 1000:
                 break
-            logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2})  while Truee  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
+            logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
         #logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) end  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
         return data
 

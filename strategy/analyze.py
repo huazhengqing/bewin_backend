@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import logging
 import traceback
 from datetime import datetime
@@ -117,10 +118,17 @@ class analyze(object):
 
     def calc_signal(self, ohlcv : List[Dict]) -> Tuple[bool, bool]:
         self.ohlcv_list.extend(ohlcv)
-        if len(self.ohlcv_list) <= 30:
-            return (False, False)
+        len_list = len(self.ohlcv_list)
+        #if len_list <= 30:
+        #    return (False, False)
+        if len_list > 100:
+            for i in range(len_list - 100):
+                del self.ohlcv_list[i]
         try:
             self.dataframe = parse_ohlcv_dataframe(self.ohlcv_list)
+            #if len(self.dataframe.index) > 100:
+            #    for i in range(len(self.dataframe.index) - 100):
+            #        self.dataframe.drop(i, inplace=True)
             self.dataframe = self.strategy.calc_indicators(self.dataframe)
             self.dataframe = self.strategy.buy(self.dataframe)
             self.dataframe = self.strategy.sell(self.dataframe)
@@ -147,7 +155,7 @@ class analyze(object):
             return
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
-        if latest['ma_high'] == 'Nan' or latest['max'] == 'Nan' or latest['volume_mean'] == 'Nan' or latest['ma_trend'] == 'Nan':
+        if math.isnan(latest['ma_high']) or math.isnan(latest['max']) or math.isnan(latest['volume_mean']) or math.isnan(latest['ma_trend']) or math.isnan(latest['ha_open']):
             logger.info(self.to_string() + "update_db() NaN latest={0}".format(latest))
             return
             

@@ -211,7 +211,7 @@ class strategy_bot(object):
 
                 #if t_markets.f_quote in conf.System_Strategy_quote:
 
-                
+
                 for tf in conf.System_Strategy_Minutes_TimeFrame.keys():
                     #logger.debug(self.to_string() + "load_system_strategy() self.user_strategy[{0}][{1}][{2}][{3}] ".format(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf))
                     a = analyze(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf, strategy_breakout())
@@ -327,6 +327,7 @@ class strategy_bot(object):
             if self.ex_symbols[ex_id].index(symbol) % max_split_count != split_i:
                 continue
             tf = record.values[2]
+            #logger.debug(self.to_string() + "topic_records_process({0},{1},{2}) ".format(ex_id, symbol, tf))
             ohlcv = [record.values[3], record.values[4], record.values[5], record.values[6], record.values[7], record.values[8]]
             #logger.debug(self.to_string() + "topic_records_process() record={0}".format(record))
             for userid in self.user_config.keys():
@@ -335,7 +336,7 @@ class strategy_bot(object):
                     self.check_position(userid, ex_id, symbol, tf, [ohlcv])
                 except Exception as e:
                     #logger.error(traceback.format_exc())
-                    logger.warn(self.to_string() + "topic_records_process({0},{1}) Exception={2}".format(self.split_i, max_split_count, e))
+                    logger.warn(self.to_string() + "topic_records_process({0},{1}) Exception={2}".format(split_i, max_split_count, e))
                 try:
                     if userid == 0:
                         # 系统策略，更新计算结果，不下单
@@ -345,7 +346,7 @@ class strategy_bot(object):
                         await self.process_strategy_user(userid, ex_id, symbol, tf, [ohlcv])
                 except Exception as e:
                     #logger.error(traceback.format_exc())
-                    logger.warn(self.to_string() + "topic_records_process({0},{1}) Exception={2}".format(self.split_i, max_split_count, e))
+                    logger.warn(self.to_string() + "topic_records_process({0},{1}) Exception={2}".format(split_i, max_split_count, e))
                 
 
 
@@ -355,7 +356,7 @@ class strategy_bot(object):
             return
         if not self.user_strategy[userid][ex_id][symbol][tf]:
             return
-        #logger.debug(self.to_string() + "process_strategy_system({0},{1},{2},{3},{4}) start".format(userid, ex_id, symbol, tf, ohlcv_list))
+        logger.debug(self.to_string() + "process_strategy_system({0},{1},{2},{3}) start".format(userid, ex_id, symbol, tf))
         '''
         s_list = self.filter_user_symbol(userid, ex_id, [symbol])
         if len(s_list) <= 0:
