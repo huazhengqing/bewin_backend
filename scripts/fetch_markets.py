@@ -6,10 +6,10 @@ import asyncio
 import logging
 import traceback
 import requests
-from fetch_base import fetch_base
 requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+from exchange.fetch_base import fetch_base
 import conf.conf_aliyun
 import conf
 import util

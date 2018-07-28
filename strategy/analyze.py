@@ -24,7 +24,7 @@ import db
 from db.db_ops import g_db_ops
 from db.datahub import g_datahub
 from exchange.exchange import exchange
-from exchange import parse_ohlcv_dataframe
+from exchange.ex_util import parse_ohlcv_dataframe
 logger = util.get_log(__name__)
 
 

@@ -9,7 +9,8 @@ requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 from db.datahub import g_datahub
-from fetch_base import fetch_base
+from exchange.fetch_base import fetch_base
+from exchange.ws_binance import ws_binance
 import conf
 import util
 logger = util.get_log(__name__)
@@ -21,7 +22,7 @@ if conf.dev_or_product == 2:
 ids = [
     'okex',
     'huobipro',
-    'binance',
+    #'binance', # 用ws实现，另一个程序执行
 ]
 
 
@@ -43,4 +44,5 @@ except:
     logger.error(traceback.format_exc())
 loop.close()
 
+ws.bm.join()
 

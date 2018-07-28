@@ -1,8 +1,8 @@
 ccxt
+python-binance
 numpy
 Cython
 arrow
-#talib
 sqlalchemy
 cfscrape
 lxml==4.2.3
@@ -12,8 +12,6 @@ vaderSentiment
 pytrends
 twisted==18.4.0
 cryptography >= 2.2.1
-python-binance
-tulipy
 pandas
 jinja2
 colorlog
@@ -30,3 +28,5 @@ flask
 dash-renderer
 dash-html-components
 dash-core-components
+#talib
+#tulipy

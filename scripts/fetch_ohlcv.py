@@ -10,8 +10,8 @@ import requests
 requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+from exchange.fetch_base import fetch_base
 import util
-from fetch_base import fetch_base
 import conf
 logger = util.get_log(__name__)
 
