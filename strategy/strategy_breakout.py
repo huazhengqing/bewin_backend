@@ -19,11 +19,6 @@ logger = util.get_log(__name__)
 class strategy_breakout(IStrategy):
     def __init__(self)-> None:
         super(strategy_breakout, self).__init__()
-    
-    def reset_para(self):
-        self.ma_period : int = 34
-        self.channel_period : int = 40
-        self.atr_period = 14
 
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
         self.reset_para()

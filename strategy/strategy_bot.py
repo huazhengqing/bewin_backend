@@ -362,7 +362,7 @@ class strategy_bot(object):
             return
         if not self.user_strategy[userid][ex_id][symbol][tf]:
             return
-        logger.debug(self.to_string() + "process_strategy_system({0},{1},{2},{3}) start".format(userid, ex_id, symbol, tf))
+        #logger.debug(self.to_string() + "process_strategy_system({0},{1},{2},{3}) start".format(userid, ex_id, symbol, tf))
         '''
         s_list = self.filter_user_symbol(userid, ex_id, [symbol])
         if len(s_list) <= 0:

@@ -18,6 +18,11 @@ class IStrategy(ABC):
         self.stoploss: float = -0.5
         self.stoploss_absolute: float = 0
 
+    def reset_para(self):
+        self.ma_period : int = 34
+        self.channel_period : int = 40
+        self.atr_period = 14
+    
     @abstractmethod
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
         pass

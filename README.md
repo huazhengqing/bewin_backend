@@ -31,15 +31,14 @@ python -m pip install --upgrade pip
 
 ```shell
 pip install --upgrade ccxt
-pip install --upgrade cfscrape
-pip install --upgrade numpy
-pip install arrow
-pip install talib
-pip install sqlalchemy
-pip install pandas
 ```
 
+## 3lib
 
+'''shell
+pip3 install -r requirements.txt
+pip install    talib
+'''
 
 ## aliyun 大数据总线(DataHub) 
 
