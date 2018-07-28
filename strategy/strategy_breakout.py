@@ -19,8 +19,22 @@ logger = util.get_log(__name__)
 class strategy_breakout(IStrategy):
     def __init__(self)-> None:
         super(strategy_breakout, self).__init__()
+    
+    def reset_para(self):
+        self.ma_period : int = 34
+        self.channel_period : int = 40
+        self.atr_period = 14
 
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
+        self.reset_para()
+        len_df = len(dataframe.index)
+        if len_df < self.ma_period + 2:
+            self.ma_period = int(len_df * 0.8)
+        if len_df < self.channel_period + 2:
+            self.channel_period = int(len_df * 0.8)
+        if len_df < self.atr_period:
+            self.atr_period = int(len_df -1)
+
         dataframe['min'] = ta.MIN(dataframe, timeperiod=self.channel_period, price='low').shift(1)
         dataframe['max'] = ta.MAX(dataframe, timeperiod=self.channel_period, price='high').shift(1)
 
@@ -37,9 +51,9 @@ class strategy_breakout(IStrategy):
         dataframe['ha_high'] = heikinashi['high']
         dataframe['ha_low'] = heikinashi['low']
 
-        dataframe['atr'] = qtpylib.atr(dataframe)
+        dataframe['atr'] = qtpylib.atr(dataframe, self.atr_period)
 
-        dataframe['volume_mean'] = dataframe['volume'].shift(1).tail(14).mean()
+        dataframe['volume_mean'] = dataframe['volume'].shift(1).tail(self.atr_period).mean()
         
     
         #logger.debug("strategy_breakout() end  dataframe={0} ".format(dataframe))

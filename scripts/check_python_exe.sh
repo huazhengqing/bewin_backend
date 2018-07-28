@@ -5,6 +5,7 @@ result=$(echo $ps_out | grep "$1")
 if [[ "$result" != "" ]];then
     echo "Running"
 else
-    /usr/local/bin/python3.6   /root/bewin_backend/scripts/"$1".py >> /dev/null &
+    cd /root/bewin_backend/scripts/
+    /usr/local/bin/python3   "$1".py >> /dev/null &
 fi
 

@@ -214,7 +214,11 @@ class strategy_bot(object):
 
                 for tf in conf.System_Strategy_Minutes_TimeFrame.keys():
                     #logger.debug(self.to_string() + "load_system_strategy() self.user_strategy[{0}][{1}][{2}][{3}] ".format(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf))
-                    a = analyze(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf, strategy_breakout())
+                    s = strategy_breakout()
+                    s.exchange = t_markets.f_ex_id
+                    s.symbol = t_markets.f_symbol
+                    s.timeframe = tf
+                    a = analyze(self.userid_system, t_markets.f_ex_id, t_markets.f_symbol, tf, s)
                     self.user_strategy[self.userid_system][t_markets.f_ex_id][t_markets.f_symbol][tf] = a
 
 
@@ -235,7 +239,9 @@ class strategy_bot(object):
                     user_strategy = strategy.load_strategy(v2["f_strategy"])
                     if not user_strategy:
                         continue
-                    a = analyze(userid, ex_id, symbol, user_strategy._timeframe, user_strategy)
+                    user_strategy.exchange = ex_id
+                    user_strategy.symbol = symbol
+                    a = analyze(userid, ex_id, symbol, user_strategy.timeframe, user_strategy)
                     self.user_strategy[userid][ex_id][symbol][user_strategy._timeframe] = a
 
 

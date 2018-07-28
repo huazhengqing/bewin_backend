@@ -119,8 +119,6 @@ class analyze(object):
     def calc_signal(self, ohlcv : List[Dict]) -> Tuple[bool, bool]:
         self.ohlcv_list.extend(ohlcv)
         len_list = len(self.ohlcv_list)
-        #if len_list <= 30:
-        #    return (False, False)
         if len_list > 100:
             for i in range(len_list - 100):
                 del self.ohlcv_list[i]
@@ -156,7 +154,7 @@ class analyze(object):
         #logger.debug(self.to_string() + "update_db() start  ")
         latest = self.dataframe.iloc[-1]
         if math.isnan(latest['ma_high']) or math.isnan(latest['max']) or math.isnan(latest['volume_mean']) or math.isnan(latest['ma_trend']) or math.isnan(latest['ha_open']):
-            logger.info(self.to_string() + "update_db() NaN latest={0}".format(latest))
+            logger.info(self.to_string() + "update_db() NaN len datafreme={0},latest={1}".format(len(self.dataframe.index), latest))
             return
             
         #logger.debug(self.to_string() + "update_db() self.symbols_analyze  ")
@@ -206,7 +204,8 @@ class analyze(object):
         
         g_db_ops.put(self.symbols_analyze)
         
-        logger.debug(self.to_string() + "update_db()  put  ")
+
+        logger.debug(self.to_string() + "update_db() len(dataframe)={0}".format(len(self.dataframe.index)))
 
         self.pub_topic()
 

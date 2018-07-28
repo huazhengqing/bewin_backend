@@ -13,6 +13,7 @@ class IStrategy(ABC):
         self.timeframe : int = 30
         self.ma_period : int = 34
         self.channel_period : int = 40
+        self.atr_period : int = 14
 
         self.stoploss: float = -0.5
         self.stoploss_absolute: float = 0
