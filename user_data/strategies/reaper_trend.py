@@ -18,7 +18,7 @@ logger = util.get_log(__name__)
 
 class reaper_trend(IStrategy):
     def __init__(self)-> None:
-        super(strategy_breakout, self).__init__()
+        super(reaper_trend, self).__init__()
         self.timeframe : int = 60
 
         self.resample_period_240 = 240
@@ -69,7 +69,8 @@ class reaper_trend(IStrategy):
     def sell(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe['low'] < self.df['240_min'].shift(1))
+                (dataframe['low'] < self.df['240_min'])
+                | (dataframe['low'] < ta.MIN(dataframe, timeperiod=2, price='ha_low'))
             ),
             'sell'] = 1
         return dataframe
