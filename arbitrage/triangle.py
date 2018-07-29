@@ -7,7 +7,6 @@ import logging
 import asyncio
 import traceback
 import threading
-import multiprocessing
 from concurrent.futures import ThreadPoolExecutor
 import ccxt.async_support as ccxt
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -277,11 +276,9 @@ class triangle(exchange_trade):
             return
         quote_to_be_hedged = ret['filled'] * ret['price']
         logger.debug(self.to_string() + "pos_cycle({0}) Process hedged_sell({1}, {2})".format(base_quote_buy_amount, self.base_mid, ret['filled']))
-        #p1 = multiprocessing.Process(target=self.hedged_sell, args=(self.base_mid, ret['filled']))
         p1 = threading.Thread(target=self.thread_hedged_sell, args=(self.base_mid, ret['filled']))
         p1.start()
         logger.debug(self.to_string() + "pos_cycle({0}) Process hedged_buy({1}, {2}={3}*{4})".format(base_quote_buy_amount, self.quote_mid, quote_to_be_hedged, ret['filled'], ret['price']))
-        #p2 = multiprocessing.Process(target=self.hedged_buy, args=(self.quote_mid, quote_to_be_hedged))
         p2 = threading.Thread(target=self.thread_hedged_buy, args=(self.quote_mid, quote_to_be_hedged))
         p2.start()
         p1.join()
@@ -301,11 +298,9 @@ class triangle(exchange_trade):
             return
         quote_to_be_hedged = ret['filled'] * ret['price']
         logger.debug(self.to_string() + "neg_cycle({0}) hedged_buy({1}, {2}) Process".format(base_quote_sell_amount, self.base_mid, ret['filled']))
-        #p1 = multiprocessing.Process(target=self.hedged_buy, args=(self.base_mid, ret['filled']))
         p1 = threading.Thread(target=self.thread_hedged_buy, args=(self.base_mid, ret['filled']))
         p1.start()
         logger.debug(self.to_string() + "neg_cycle({0}) hedged_sell({1}, {2}={3}*{4}) Process".format(base_quote_sell_amount, self.quote_mid, quote_to_be_hedged, ret['filled'], ret['price']))
-        #p2 = multiprocessing.Process(target=self.hedged_sell, args=(self.quote_mid, quote_to_be_hedged))
         p2 = threading.Thread(target=self.thread_hedged_sell, args=(self.quote_mid, quote_to_be_hedged))
         p2.start()
         p1.join()

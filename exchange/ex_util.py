@@ -26,7 +26,7 @@ def load_markets_all():
 
 #======================================
 
-g_ex_tickers = util.nesteddict()
+g_symbol_ex_ticker = util.nesteddict()
 
 
 
