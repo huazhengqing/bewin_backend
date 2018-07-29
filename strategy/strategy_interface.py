@@ -55,8 +55,9 @@ class IStrategy(ABC):
         dataframe['ha_low'] = heikinashi['low']
 
         dataframe['atr'] = qtpylib.atr(dataframe, self.atr_period)
-
         dataframe['volume_mean'] = dataframe['volume'].shift(1).tail(self.atr_period).mean()
+        
+        return dataframe
     
     def buy(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[

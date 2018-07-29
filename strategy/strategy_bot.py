@@ -116,7 +116,6 @@ class strategy_bot(object):
         return "strategy_bot[] "
 
     def load_system_conifg(self):
-        #logger.debug(self.to_string() + "load_system_conifg()  start")
         t_user_exchange_list = db.Session().query(db.t_user_exchange).filter(
             db.t_user_exchange.f_userid == 0, 
         ).all()
@@ -193,17 +192,15 @@ class strategy_bot(object):
         logger.debug(self.to_string() + "refresh_whitelist({0}) len={1}".format(ex_id, len(whitelist)))
 
     def refresh_whitelist_all(self):
-        #logger.debug(self.to_string() + "refresh_whitelist_all()  start")
         ids = ccxt.exchanges
         ids = conf.System_Strategy_ex
         for id in ids:
             self.refresh_whitelist(id)
-        #logger.debug(self.to_string() + "refresh_whitelist_all()  end")
+            
 
 
 
     def load_system_strategy(self):
-        #logger.debug(self.to_string() + "load_system_strategy()  start")
         t_markets_list = db.Session().query(db.t_markets).all()
         for t_markets in t_markets_list:
             if t_markets.f_ex_id in conf.System_Strategy_ex:
@@ -222,7 +219,6 @@ class strategy_bot(object):
                     self.user_strategy[self.userid_system][t_markets.f_ex_id][t_markets.f_symbol][tf] = a
 
 
-        #logger.debug(self.to_string() + "load_system_strategy()  end")
 
 
     def load_user_strategy(self):
