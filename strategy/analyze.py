@@ -124,6 +124,8 @@ class analyze(object):
                 del self.ohlcv_list[i]
         try:
             self.dataframe = parse_ohlcv_dataframe(self.ohlcv_list)
+            if self.dataframe.empty:
+                return (False, False)
             #if len(self.dataframe.index) > 100:
             #    for i in range(len(self.dataframe.index) - 100):
             #        self.dataframe.drop(i, inplace=True)

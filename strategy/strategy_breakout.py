@@ -30,46 +30,19 @@ class strategy_breakout(IStrategy):
         if len_df < self.atr_period:
             self.atr_period = int(len_df -1)
 
-        dataframe['min'] = ta.MIN(dataframe, timeperiod=self.channel_period, price='low').shift(1)
-        dataframe['max'] = ta.MAX(dataframe, timeperiod=self.channel_period, price='high').shift(1)
-
-        dataframe['ma_high'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='high')
-        dataframe['ma_low'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='low')
-        dataframe['ma_close'] = ta.EMA(dataframe, timeperiod=self.ma_period, price='close')
-        dataframe.loc[(dataframe['ma_close'].shift(1) < dataframe['ma_close']), 'ma_trend'] = 1
-        dataframe.loc[(dataframe['ma_close'].shift(1) > dataframe['ma_close']), 'ma_trend'] = -1
-        dataframe.loc[(dataframe['ma_close'].shift(1) == dataframe['ma_close']), 'ma_trend'] = 0
-
-        heikinashi = qtpylib.heikinashi(dataframe)
-        dataframe['ha_open'] = heikinashi['open']
-        dataframe['ha_close'] = heikinashi['close']
-        dataframe['ha_high'] = heikinashi['high']
-        dataframe['ha_low'] = heikinashi['low']
-
-        dataframe['atr'] = qtpylib.atr(dataframe, self.atr_period)
-
-        dataframe['volume_mean'] = dataframe['volume'].shift(1).tail(self.atr_period).mean()
-        
-    
-        #logger.debug("strategy_breakout() end  dataframe={0} ".format(dataframe))
-        return dataframe
+        return super().calc_indicators(dataframe)
 
     def buy(self, dataframe: DataFrame) -> DataFrame:
-        dataframe.loc[
-            (
-                (dataframe['ha_open'] < dataframe['ha_close']) &
-                (dataframe['ha_high'] > dataframe['max']) 
-            )
-            , 'buy'] = 1
-        return dataframe
+        return super().buy(dataframe)
 
     def sell(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe['ha_open'] > dataframe['ha_close']) &
-                (dataframe['low'] < dataframe['min']) 
-            )
-            , 'sell'] = 1
+                (dataframe['close'] < ta.MIN(dataframe, timeperiod=2, price='ha_low')) &
+                (dataframe['ha_open'] > dataframe['ha_close'])
+            ),
+            'sell'] = 1
         return dataframe
+        
 
 
