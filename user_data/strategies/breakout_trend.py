@@ -18,10 +18,10 @@ class breakout_trend(IStrategy):
     def __init__(self)-> None:
         super(breakout_trend, self).__init__()
         self.timeframe : int = 60
-        self.resample_period_240 = 240
+        self.resample_tf_240 : int = 240
 
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
-        dataframe = super().resample(dataframe, self.resample_period_240)
+        dataframe = super().resample(dataframe, self.resample_tf_240)
         dataframe = super().calc_indicators(dataframe)
         return dataframe
 

@@ -38,6 +38,12 @@ class exchange_trade(exchange):
             self.ex.aiohttp_proxy = t_user_exchange_info.f_aiohttp_proxy        
             #self.ex.proxy = t_user_exchange_info.f_proxy
             #self.ex.proxies = t_user_exchange_info.f_proxies
+            '''
+            self.ex.proxies = {
+                'http': "http://127.0.0.1:1080",
+                'https': "http://127.0.0.1:1080",
+            }
+            '''
             logger.debug(self.to_string() + "aiohttp_proxy={0}".format(self.ex.aiohttp_proxy))
 
             '''

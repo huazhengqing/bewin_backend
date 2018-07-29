@@ -12,14 +12,6 @@ import conf
 
 
 
-
-_EXCHANGE_URLS = {
-    ccxt.bittrex.__name__: '/Market/Index?MarketName={quote}-{base}',
-    ccxt.binance.__name__: '/tradeDetail.html?symbol={base}_{quote}'
-}
-
-
-
 TimeFrame_Minutes = {
     '1m': 1,
     #'3m': 3,

@@ -4,6 +4,8 @@
 logs/*.log
 conf/*
 test/*
+mm
+mm/*
 
 func/func_python_spread/*
 !func/func_python_spread/*.zip

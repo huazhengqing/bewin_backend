@@ -10,6 +10,16 @@ import util
 logger = util.get_log(__name__)
 
 
+
+
+_EXCHANGE_URLS = {
+    ccxt.bittrex.__name__: '/Market/Index?MarketName={quote}-{base}',
+    ccxt.binance.__name__: '/tradeDetail.html?symbol={base}_{quote}'
+}
+
+
+
+
 #======================================
 
 g_ex_markets = util.nesteddict()

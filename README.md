@@ -25,20 +25,34 @@ python -m pip install --upgrade pip
 ## ccxt
 
 - [ccxt](https://github.com/ccxt/ccxt)
-- [talib安装(linux)](https://blog.csdn.net/fortiy/article/details/76531700)
-- [talib安装(windows)](http://blog.chinaunix.net/uid-21519621-id-5757088.html)
-- [talib windows 64位安装](https://blog.csdn.net/xiongjx3/article/details/80274678)
 
 ```shell
 pip install --upgrade ccxt
 ```
 
+## ta-lib
+
+- [ta-lib(windows)](https://github.com/mrjbq7/ta-lib#windows)
+- [talib安装(linux)](https://blog.csdn.net/fortiy/article/details/76531700)
+- [talib安装(windows)](http://blog.chinaunix.net/uid-21519621-id-5757088.html)
+- [talib windows 64位安装](https://blog.csdn.net/xiongjx3/article/details/80274678)
+- [TA_Lib‑0.4.17‑cp36‑cp36m‑win32.whl](https://www.lfd.uci.edu/~gohlke/pythonlibs/#ta-lib)
+
+```shell
+pip install talib
+pip install TA_Lib‑0.4.17‑cp36‑cp36m‑win32.whl
+```
+
 ## 3lib
 
-'''shell
+```shell
 pip3 install -r requirements.txt
-pip install    talib
-'''
+```
+
+## telegram 
+
+- [BotFather](https://telegram.me/BotFather)
+- [userid](https://telegram.me/userinfobot)
 
 ## aliyun 大数据总线(DataHub) 
 

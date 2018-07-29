@@ -122,7 +122,7 @@ class exchange(object):
         try:
             url_base = self.ex.urls.get('www')
             base, quote = symbol.split('/')
-            return url_base + util._EXCHANGE_URLS[self.ex.id].format(base=base, quote=quote)
+            return url_base + _EXCHANGE_URLS[self.ex.id].format(base=base, quote=quote)
         except:
             logger.warning(self.to_string() + 'get_symbol_detail_url({0}) no url'.format(symbol))
             return ""
