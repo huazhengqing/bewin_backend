@@ -18,9 +18,10 @@ dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 import db
 from db.datahub import g_datahub
-from .ex_util import safe_string, safe_lower_string, safe_float, safe_int, safe_value, safe_iso8601, merge_symbol, symbol_2_ccxt
+from .ex_util import *
 import util
 logger = util.get_log(__name__)
+
 
 
 KLINE_INTERVAL_1MINUTE = '1m'
@@ -41,7 +42,7 @@ KLINE_INTERVAL_1MONTH = '1M'
 
 
 class ws_binance():
-    __id = 'binance'
+    ex_id = 'binance'
     __TICKER_KEY = "@ticker"
     __KLINE_KEY = "@kline"
     __MULTIPLEX_SOCKET_NAME = "multiplex"
@@ -52,7 +53,6 @@ class ws_binance():
         'FILLED': 'closed',
         'CANCELED': 'canceled',
     }
-    __symbol_fee = dict()
     def __init__(self, key = "", secret = ""):
         self.client = Client(key, secret)
         self.bm = BinanceSocketManager(self.client)
@@ -62,9 +62,7 @@ class ws_binance():
         self.topic['t_ticker'] = g_datahub.get_topic('t_ticker')
         self.topic['t_ohlcv'] = g_datahub.get_topic('t_ohlcv')
 
-        t_markets = db.Session().query(db.t_markets).filter(db.t_markets.f_ex_id == ws_binance.__id).all()
-        for t_market in t_markets:
-            ws_binance.__symbol_fee[t_market.f_symbol] = t_market.f_fee_taker
+        load_markets_db(self.ex_id)
 
         
     def to_string(self):
@@ -80,8 +78,9 @@ class ws_binance():
             #for symbol in symbols:
             #    streams.append("{}{}".format(merge_symbol(symbol).lower(), self.__TICKER_KEY))
         if len(symbols) <= 0:
-            streams = ["{}{}_{}".format(merge_symbol(symbol).lower(), self.__KLINE_KEY, time_frame) for time_frame in time_frames for symbol in ws_binance.__symbol_fee.keys()]
+            streams = ["{}{}_{}".format(merge_symbol(symbol).lower(), self.__KLINE_KEY, time_frame) for time_frame in time_frames for symbol in g_ex_markets[self.ex_id].keys()]
         if len(symbols) > 0:
+            logger.debug(self.to_string() + 'start() streams={0}'.format(streams))
             self.conn["start_multiplex_socket"] = self.bm.start_multiplex_socket(streams, self.callback_multiplex)
         self.conn["start_ticker_socket"] = self.bm.start_ticker_socket(self.fetch_ticker_2_datahub)
         self.bm.start()
@@ -114,7 +113,7 @@ class ws_binance():
             f_base_volume = ticker['baseVolume'] and ticker['baseVolume'] or 0
             f_quote_volume = ticker['quoteVolume'] and ticker['quoteVolume'] or 0
             f_ts_update = arrow.utcnow().timestamp
-            v = [ws_binance.__id, symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
+            v = [ws_binance.ex_id, symbol, f_ts, f_bid, f_bid_volume, f_ask, f_ask_volume, f_vwap, f_open, f_high, f_low, f_close, f_last, f_previous_close, f_change, f_percentage, f_average, f_base_volume, f_quote_volume, f_ts_update]
             record = TupleRecord(schema=topic.record_schema)
             record.values = v
             i = random.randint(1,100) % len(shards)

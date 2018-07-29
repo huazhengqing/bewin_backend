@@ -16,6 +16,7 @@ from random import randint
 from typing import List, Dict, Any, Optional
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+from exchange.ex_util import *
 import conf
 import util
 from util import retry
@@ -78,6 +79,8 @@ class exchange(object):
         self.ticker = None
         self.ticker_time = 0
 
+        self.symbol_tickers = dict()
+
         '''
         self.order_book[symbol]['bids'][0][0]    # buy_1_price
         self.order_book[symbol]['bids'][0][1]    # buy_1_quantity
@@ -86,6 +89,7 @@ class exchange(object):
         '''
         self.order_book = dict()
         self.order_book_time = 0
+        self.order_book_time_pre = 0
         self.buy_1_price = 0.0
         self.buy_1_quantity = 0.0
         self.sell_1_price = 0.0
@@ -97,8 +101,10 @@ class exchange(object):
         self.base_cur = ''
         self.quote_cur = ''
 
+        
+
     def to_string(self):
-        return "exchange[{0},{1}] ".format(self.ex_id, self.userid)
+        return "exchange[{0},{1}] ".format(self.userid, self.ex_id)
     
     async def close(self):
         if self.ex:
@@ -158,37 +164,29 @@ class exchange(object):
         if symbol not in self.ex.symbols:
             raise Exception(self.to_string() + "check_symbol({0}) error".format(symbol))
 
-    '''
-    {
-        'symbol': symbol,
-        'timestamp': timestamp,
-        'datetime': iso8601,
-        'high': self.safe_float(ticker, 'highPrice'),
-        'low': self.safe_float(ticker, 'lowPrice'),
-        'bid': self.safe_float(ticker, 'bidPrice'),
-        'bidVolume': self.safe_float(ticker, 'bidQty'),
-        'ask': self.safe_float(ticker, 'askPrice'),
-        'askVolume': self.safe_float(ticker, 'askQty'),
-        'vwap': self.safe_float(ticker, 'weightedAvgPrice'),
-        'open': self.safe_float(ticker, 'openPrice'),
-        'close': self.safe_float(ticker, 'prevClosePrice'),
-        'first': None,
-        'last': self.safe_float(ticker, 'lastPrice'),
-        'change': self.safe_float(ticker, 'priceChange'),
-        'percentage': self.safe_float(ticker, 'priceChangePercent'),
-        'average': None,
-        'baseVolume': self.safe_float(ticker, 'volume'),
-        'quoteVolume': self.safe_float(ticker, 'quoteVolume'),
-        'info': ticker,
-    }
-    '''
+
+
+
+
     async def fetch_ticker(self, symbol):
-        #logger.debug(self.to_string() + "fetch_ticker({0}) start".format(symbol))
         self.set_symbol(symbol)
         self.ticker = await self.ex.fetch_ticker(symbol)
         self.ticker_time = arrow.utcnow().timestamp * 1000
-        #logger.debug(self.to_string() + "fetch_ticker({0}) end ticker={1}".format(symbol, self.ticker))
         return self.ticker
+
+    async def fetch_tickers(self):
+        if self.has_api('fetchTickers'):
+            tickers = await self.ex.fetch_tickers()
+            for ticker in tickers:
+                self.symbol_tickers[ticker['symbol']] = ticker
+        else:
+            for symbol in self.ex.symbols:
+                self.symbol_tickers[symbol] = await self.ex.fetch_ticker(symbol)
+        return self.symbol_tickers
+
+
+
+
 
     '''
     self.order_book[symbol]['bids'][0][0]    # buy_1_price
@@ -197,20 +195,25 @@ class exchange(object):
     self.order_book[symbol]['asks'][0][1]    # sell_1_quantity
     '''
     async def fetch_order_book(self, symbol, i = 5):
-        #logger.debug(self.to_string() + "fetch_order_book({0}) start".format(symbol))
         if symbol == '':
             return
+
         self.order_book[symbol] = await self.ex.fetch_order_book(symbol, i)
         self.order_book_time = arrow.utcnow().timestamp * 1000
+
         self.buy_1_price = self.order_book[symbol]['bids'][0][0]
         self.buy_1_quantity = self.order_book[symbol]['bids'][0][1]
         self.sell_1_price = self.order_book[symbol]['asks'][0][0]
         self.sell_1_quantity = self.order_book[symbol]['asks'][0][1]
+        
         self.slippage_value = self.sell_1_price - self.buy_1_price
         self.slippage_ratio = (self.sell_1_price - self.buy_1_price) / self.buy_1_price
         self.set_symbol(symbol)
+
         #logger.debug(self.to_string() + "fetch_order_book({0}) end order_book[{1}]={2}".format(symbol, symbol, self.order_book[symbol]))
         return self.order_book
+
+
 
     async def fetch_ohlcv(self, symbol, timeframe, since_ms = None):
         #logger.debug(self.to_string() + "fetch_ohlcv({0}, {1}, {2}) start".format(symbol, period, since_ms))
@@ -232,67 +235,133 @@ class exchange(object):
         #logger.debug(self.to_string() + "fetch_ohlcv({0},{1},{2}) end  len(data)={3}".format(symbol, timeframe, since_ms, len(data)))
         return data
 
-    # 异常处理
+
+
+
+
+    def get_limits_amount_min_price(self, symbol: str, price: float) -> Optional[float]:
+        market = self.ex.markets[symbol]
+        if 'limits' not in market:
+            return None
+
+        min_amounts = []
+        limits = market['limits']
+        if ('cost' in limits and 'min' in limits['cost'] and limits['cost']['min'] is not None):
+            min_amounts.append(limits['cost']['min'])
+
+        if ('amount' in limits and 'min' in limits['amount'] and limits['amount']['min'] is not None):
+            min_amounts.append(limits['amount']['min'] * price)
+
+        if not min_amounts:
+            return None
+
+        return max(min_amounts) * 2
+
+    def calculate_fee(self, symbol='ETH/BTC', type='', side='', amount=1, price=1, taker_or_maker='maker') -> float:
+        return self.ex.calculate_fee(
+            symbol=symbol, 
+            type=type, 
+            side=side, 
+            amount=amount, 
+            price=price, 
+            takerOrMaker=taker_or_maker
+            )['rate']
+
+    def amount_to_lots(self, symbol: str, amount: float) -> float:
+        return self.ex.amount_to_lots(symbol, amount)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    # 3角套利，查找可以套利的币
+    async def triangle_find_best_profit(self, quote1 = "BTC", quote2 = "ETH"):
+        btc_coin = dict()
+        eth_coin = dict()
+        await self.fetch_tickers()
+        for symbol, ticker in self.symbol_tickers.items():
+            coin, quote = split_symbol(symbol)
+            if quote == quote1:
+                btc_coin[coin] = ticker
+            if quote == quote2:
+                eth_coin[coin] = ticker
+
+        ethprice = float(btc_coin[quote2]["bid"])
+
+        #print("币种------ETH记价---ETH/BTC价---转成BTC价---直接BTC价--价差比")
+        find_coin = ''
+        find_profit = 0.0
+        for k, v in btc_coin.items():
+            if k in eth_coin:
+                coin2btc = float(ethprice) * float(eth_coin[k]["bid"])
+                btcbuy  = float(btc_coin[k]["bid"])
+                profit = (btcbuy - coin2btc) / coin2btc
+                if abs(profit) > 0.008:
+                    #print("%s\t%10.8f  %10.8f  %10.8f  %10.8f  %s"%(k, float(eth_coin[k]["price"]), round(ethprice,8), round(coin2btc, 8), btcbuy, profit))
+                    if abs(profit) > abs(find_profit):
+                        find_coin = k
+                        find_profit = profit
+
+        if find_coin != '':
+            coin_btc = find_coin + '/' + quote1
+            coin_eth = find_coin + '/' + quote2
+            fee = 0.003
+            await self.fetch_order_book(coin_btc)
+            fee += self.slippage_ratio
+            #print(coin_btc, ': bids=', self.buy_1_price, '|asks=', self.sell_1_price, '|spread%=', round(self.slippage_ratio, 4))
+            await self.fetch_order_book(coin_eth) 
+            fee += self.slippage_ratio
+            #print(coin_eth, ': bids=', self.buy_1_price, '|asks=', self.sell_1_price, '|spread%=', round(self.slippage_ratio, 4))
+            if abs(find_profit) > fee:
+                logger.info("%s \t %10.4f"%(find_coin, abs(find_profit) - fee))
+
+
+
     async def run(self, func, *args, **kwargs):
-        logger.info(self.to_string() + "run() start")
-        err_timeout = 0
-        err_ddos = 0
-        err_auth = 0
-        err_not_available = 0
-        err_exchange = 0
-        err_network = 0
-        err = 0
         while True:
             try:
-                logger.info(self.to_string() + "run() func")
                 await func(*args, **kwargs)
-                err_timeout = 0
-                err_ddos = 0
-                err_auth = 0
-                err_not_available = 0
-                err_exchange = 0
-                err_network = 0
-                err = 0
             except ccxt.RequestTimeout:
-                err_timeout = err_timeout + 1
-                logger.info(traceback.format_exc())
-                await asyncio.sleep(30)
+                logger.info(self.to_string() + "run() ccxt.RequestTimeout ")
+                await asyncio.sleep(3)
             except ccxt.DDoSProtection:
-                err_ddos = err_ddos + 1
-                logger.error(traceback.format_exc())
-                await asyncio.sleep(15)
+                logger.info(self.to_string() + "run() ccxt.DDoSProtection ")
+                await asyncio.sleep(3)
             except ccxt.AuthenticationError:
-                err_auth = err_auth + 1
-                logger.error(traceback.format_exc())
-                await asyncio.sleep(5)
-                if err_auth > 5:
-                    break
+                logger.info(self.to_string() + "run() ccxt.AuthenticationError ")
+                await asyncio.sleep(3)
             except ccxt.ExchangeNotAvailable:
-                err_not_available = err_not_available + 1
-                logger.error(traceback.format_exc())
-                await asyncio.sleep(30)
-                if err_not_available > 5:
-                    break
+                logger.info(self.to_string() + "run() ccxt.ExchangeNotAvailable ")
+                await asyncio.sleep(3)
             except ccxt.ExchangeError:
-                err_exchange = err_exchange + 1
-                logger.error(traceback.format_exc())
-                await asyncio.sleep(5)
-                if err_exchange > 5:
-                    break
+                logger.info(self.to_string() + "run() ccxt.ExchangeError ")
+                await asyncio.sleep(3)
             except ccxt.NetworkError:
-                err_network = err_network + 1
-                logger.error(traceback.format_exc())
-                await asyncio.sleep(5)
-                if err_network > 5:
-                    break
-            except Exception:
-                err = err + 1
-                logger.info(traceback.format_exc())
-                break
+                logger.info(self.to_string() + "run() ccxt.NetworkError ")
+                await asyncio.sleep(3)
+            except Exception as e:
+                logger.info(self.to_string() + "run() {}".format(e))
+                await asyncio.sleep(3)
             except:
                 logger.error(traceback.format_exc())
-                break
-        if not self.ex:
-            await self.ex.close()
-        logger.info(self.to_string() + "run() end")
+
+
+
 

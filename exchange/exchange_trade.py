@@ -16,6 +16,7 @@ from random import randint
 from typing import List, Dict, Any, Optional
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+from exchange.ex_util import *
 import conf
 import util
 from util import retry
@@ -48,21 +49,34 @@ class exchange_trade(exchange):
             }
             '''
         '''
-        self.balance['BTC']['free']     # 还有多少钱
-        self.balance['BTC']['used']
-        self.balance['BTC']['total']
+        self.balances['BTC']['free']     # 还有多少钱
+        self.balances['BTC']['used']
+        self.balances['BTC']['total']
         '''
-        self.balance = None
+        self.balances = None
 
         # 仓位再平衡
         self.rebalance_position_proportion = 0.5
         self.rebalance_time = 0
 
+        load_markets_db(self.ex.id)
+
+    @staticmethod
+    def create(userid, ex_id):
+        t_user_exchange = db.Session().query(db.t_user_exchange).filter(
+            db.t_user_exchange.f_userid == userid,
+            db.t_user_exchange.f_ex_id == ex_id
+        ).first()
+        if not t_user_exchange:
+            return None
+        return exchange_trade(t_user_exchange)
+        
     def to_string(self):
         return "exchange_trade[{0},{1}] ".format(self.ex_id, self.userid)
 
+
+
     async def fetch_balances(self):
-        #logger.debug(self.to_string() + "fetch_balances() start")
         p = {}
         if self.ex.id == 'binance':
             p = {
@@ -73,23 +87,15 @@ class exchange_trade(exchange):
         self.balances.pop("free", None)
         self.balances.pop("total", None)
         self.balances.pop("used", None)
-        #logger.debug(self.to_string() + "fetch_balances() end balance={0}".format(self.balance))
-        #logger.debug(self.to_string() + "fetch_balances() end")
+        #logger.debug(self.to_string() + "fetch_balances() end balance={0}".format(self.balances))
         return self.balances
 
-    def get_balance(self, currency: str) -> float:
-        balances = self.fetch_balances()
+    async def get_balance(self, currency: str) -> float:
+        balances = await self.fetch_balances()
         balance = balances.get(currency)
         if not balance:
             raise Exception(self.to_string() + "get_balance({0}) error ".format(currency))
         return balance['free']
-
-
-
-
-
-
-
 
 
 
@@ -101,6 +107,8 @@ class exchange_trade(exchange):
         my_trades = await self.ex.fetch_my_trades(symbol, since.timestamp())
         matched_trades = [trade for trade in my_trades if trade['order'] == order_id]
         return matched_trades
+
+
 
     '''
     async def get_real_amount(self, t_trade: db.t_trades, order: Dict) -> float:
@@ -140,44 +148,6 @@ class exchange_trade(exchange):
 
         return real_amount
     '''
-    def get_limits_amount_min_price(self, symbol: str, price: float) -> Optional[float]:
-        #await self.load_markets()
-        self.check_symbol(symbol)
-
-        market = self.ex.markets[symbol]
-        if 'limits' not in market:
-            return None
-
-        min_amounts = []
-        limits = market['limits']
-        if ('cost' in limits and 'min' in limits['cost'] and limits['cost']['min'] is not None):
-            min_amounts.append(limits['cost']['min'])
-
-        if ('amount' in limits and 'min' in limits['amount'] and limits['amount']['min'] is not None):
-            min_amounts.append(limits['amount']['min'] * price)
-
-        if not min_amounts:
-            return None
-
-        return max(min_amounts) * 2
-
-    def calculate_fee(self, symbol='ETH/BTC', type='', side='', amount=1, price=1, taker_or_maker='maker') -> float:
-        #await self.load_markets()
-        self.check_symbol(symbol)
-        return self.ex.calculate_fee(
-            symbol=symbol, 
-            type=type, 
-            side=side, 
-            amount=amount, 
-            price=price, 
-            takerOrMaker=taker_or_maker
-            )['rate']
-
-    async def amount_to_lots(self, symbol: str, amount: float) -> float:
-        await self.load_markets()
-        self.check_symbol(symbol)
-        return self.ex.amount_to_lots(symbol, amount)
-
 
 
 
@@ -245,12 +215,12 @@ class exchange_trade(exchange):
     # 限价买卖
     async def buy_cancel(self, symbol, amount):
         logger.debug(self.to_string() + "buy_cancel({0}, {1}) start".format(symbol, amount))
-        if amount <= self.ex.markets[symbol]['limits']['amount']['min']:
-            logger.debug(self.to_string() + "buy_cancel({0}, {1}) return min={2}".format(symbol, amount, self.ex.markets[symbol]['limits']['amount']['min']))
+        if amount <= g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
+            logger.debug(self.to_string() + "buy_cancel({0}, {1}) return min={2}".format(symbol, amount, g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']))
             return
         #await self.fetch_order_book(symbol, 5)
         price = self.order_book[symbol]['asks'][0][0]
-        amount = util.downRound(amount, self.ex.markets[symbol]['precision']['amount'])
+        amount = util.downRound(amount, g_ex_markets[self.ex.id][symbol]['f_precision_amount'])
         ret = await self.ex.create_order(symbol, 'limit', 'buy', amount, price)
         ret = await self.ex.fetch_order(ret['id'], symbol)
         logger.debug(self.to_string() + "buy_cancel({0}, {1}) ret={2}".format(symbol, amount, ret))
@@ -273,12 +243,12 @@ class exchange_trade(exchange):
 
     async def sell_cancel(self, symbol, amount):
         logger.debug(self.to_string() + "sell_cancel({0}, {1}) start".format(symbol, amount))
-        if amount <= self.ex.markets[symbol]['limits']['amount']['min']:
-            logger.debug(self.to_string() + "sell_cancel({0}, {1}) return min={2}".format(symbol, amount, self.ex.markets[symbol]['limits']['amount']['min']))
+        if amount <= g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
+            logger.debug(self.to_string() + "sell_cancel({0}, {1}) return min={2}".format(symbol, amount, g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']))
             return
         #await self.fetch_order_book(symbol, 5)
         price = self.order_book[symbol]['bids'][0][0]
-        amount = util.downRound(amount, self.ex.markets[symbol]['precision']['amount'])
+        amount = util.downRound(amount, g_ex_markets[self.ex.id][symbol]['f_precision_amount'])
         ret = await self.ex.create_order(symbol, 'limit', 'sell', amount, price)
         ret = await self.ex.fetch_order(ret['id'], symbol)
         logger.debug(self.to_string() + "sell_cancel({0}, {1}) ret={2}".format(symbol, amount, ret))
@@ -302,12 +272,12 @@ class exchange_trade(exchange):
     # 有交易所，只支持 limit order 
     async def buy_all(self, symbol, amount):
         logger.debug(self.to_string() + "buy_all({0}, {1}) start".format(symbol, amount))
-        if amount < self.ex.markets[symbol]['limits']['amount']['min']:
-            logger.debug(self.to_string() + "buy_all({0}, {1}) return amount.min={2}".format(symbol, amount, self.ex.markets[symbol]['limits']['amount']['min']))
+        if amount < g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
+            logger.debug(self.to_string() + "buy_all({0}, {1}) return amount.min={2}".format(symbol, amount, g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']))
             return
         #await self.fetch_order_book(symbol, 5)
         price = self.order_book[symbol]['asks'][0][0]
-        amount = util.downRound(amount, self.ex.markets[symbol]['precision']['amount'])
+        amount = util.downRound(amount, g_ex_markets[self.ex.id][symbol]['f_precision_amount'])
         logger.debug(self.to_string() + "buy_all({0}, {1}) price={2}".format(symbol, amount, price))
         ret = None
         c = 0
@@ -321,14 +291,14 @@ class exchange_trade(exchange):
             except:
                 logger.error(traceback.format_exc())
         c = 0
-        while ret['remaining'] is not None and ret['remaining'] >= self.ex.markets[symbol]['limits']['amount']['min']:
+        while ret['remaining'] is not None and ret['remaining'] >= g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
             try:
                 price = self.order_book[symbol]['asks'][4][0]
                 logger.debug(self.to_string() + "buy_all({0}, {1}) remaining price={2} c={3}".format(symbol, amount, price, c))
                 ret = await self.ex.create_order(symbol, 'limit', 'buy', ret['remaining'], price)
                 ret = await self.ex.fetch_order(ret['id'], symbol)
                 logger.debug(self.to_string() + "buy_all({0}, {1}) remaining ret={2} c={3}".format(symbol, amount, ret, c))
-                if ret['remaining'] is not None and ret['remaining'] >= self.ex.markets[symbol]['limits']['amount']['min']:
+                if ret['remaining'] is not None and ret['remaining'] >= g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
                     await self.fetch_order_book(symbol, 5)
             except:
                 logger.error(traceback.format_exc())
@@ -339,12 +309,12 @@ class exchange_trade(exchange):
 
     async def sell_all(self, symbol, amount):
         logger.debug(self.to_string() + "sell_all({0}, {1}) start".format(symbol, amount))
-        if amount < self.ex.markets[symbol]['limits']['amount']['min']:
-            logger.debug(self.to_string() + "sell_all({0}, {1}) return amount.min={2}".format(symbol, amount, self.ex.markets[symbol]['limits']['amount']['min']))
+        if amount < g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
+            logger.debug(self.to_string() + "sell_all({0}, {1}) return amount.min={2}".format(symbol, amount, g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']))
             return
         #await self.fetch_order_book(symbol, 5)
         price = self.order_book[symbol]['bids'][0][0]
-        amount = util.downRound(amount, self.ex.markets[symbol]['precision']['amount'])
+        amount = util.downRound(amount, g_ex_markets[self.ex.id][symbol]['f_precision_amount'])
         ret = None
         c = 0
         while c < 5:
@@ -357,14 +327,14 @@ class exchange_trade(exchange):
             except:
                 logger.error(traceback.format_exc())
         c = 0
-        while ret['remaining'] is not None and ret['remaining'] >= self.ex.markets[symbol]['limits']['amount']['min']:
+        while ret['remaining'] is not None and ret['remaining'] >= g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
             try:
                 price = self.order_book[symbol]['bids'][4][0]
                 logger.debug(self.to_string() + "sell_all({0}, {1}) remaining price={2} c={3}".format(symbol, amount, price, c))
                 ret = await self.ex.create_order(symbol, 'limit', 'sell', ret['remaining'], price)
                 ret = await self.ex.fetch_order(ret['id'], symbol)
                 logger.debug(self.to_string() + "sell_all({0}, {1}) remaining ret={2} c={3}".format(symbol, amount, ret, c))
-                if ret['remaining'] is not None and ret['remaining'] >= self.ex.markets[symbol]['limits']['amount']['min']:
+                if ret['remaining'] is not None and ret['remaining'] >= g_ex_markets[self.ex.id][symbol]['f_limits_amount_min']:
                     await self.fetch_order_book(symbol, 5)
             except:
                 logger.error(traceback.format_exc())
@@ -388,15 +358,15 @@ class exchange_trade(exchange):
         await self.fetch_balances()
         await self.fetch_ticker(symbol)
         self.set_symbol(symbol)
-        pos_value = self.balance[self.base_cur]['free'] * self.ticker['bid']
-        total_value = self.balance[self.quote_cur]['free'] + pos_value
+        pos_value = self.balances[self.base_cur]['free'] * self.buy_1_price
+        total_value = self.balances[self.quote_cur]['free'] + pos_value
         target_pos_value = total_value * self.rebalance_position_proportion
         if pos_value < target_pos_value * 0.8:
-            buy_amount = (target_pos_value - pos_value) / self.ticker['bid']
+            buy_amount = (target_pos_value - pos_value) / self.buy_1_price
             logger.debug(self.to_string() + "rebalance_position({0}) buy_all({1}) ".format(symbol, buy_amount))
             await self.buy_all(symbol, buy_amount)
         elif pos_value > target_pos_value * 1.2:
-            sell_amount = (pos_value - target_pos_value) / self.ticker['bid']
+            sell_amount = (pos_value - target_pos_value) / self.buy_1_price
             logger.debug(self.to_string() + "rebalance_position({0}) sell_all({1}) ".format(symbol, sell_amount))
             await self.sell_all(symbol, sell_amount)
         self.rebalance_time = arrow.utcnow().timestamp
@@ -404,60 +374,13 @@ class exchange_trade(exchange):
 
     # 评估账户 最小下注量
     async def balance_amount_min(self, symbol):
-        logger.debug(self.to_string() + "balance_amount_min({0}) start".format(symbol))
-        await self.load_markets()
-        await self.fetch_balances()
-        await self.fetch_ticker(symbol)
-        self.set_symbol(symbol)
-        pos_value = self.balance[self.base_cur]['free'] * self.ticker['bid']
-        total_value = self.balance[self.quote_cur]['free'] + pos_value
-        total_amount = total_value / self.ticker['ask'] * 0.97
-        ret = max(self.ex.markets[symbol]['limits']['amount']['min'] * 2, total_amount * 0.02)
+        await self.fetch_order_book(symbol)
+        pos_value = self.balances[self.base_cur]['free'] * self.buy_1_price
+        total_value = self.balances[self.quote_cur]['free'] + pos_value
+        total_amount = total_value / self.sell_1_price * 0.97
+        ret = max(g_ex_markets[self.ex.id][symbol]['f_limits_amount_min'] * 2, total_amount * 0.05)
         logger.debug(self.to_string() + "balance_amount_min({0}) end ret={1}".format(symbol, ret))
         return ret
-
-
-    # 3角套利，查找可以套利的币
-    async def triangle_find_best_profit(self, quote1 = "BTC", quote2 = "ETH"):
-        btc_coin = dict()
-        eth_coin = dict()
-        allcoin = await self.ex.request('ticker/price', 'v3')
-        for item in allcoin:
-            coin = item["symbol"][:-3]
-            quote = item["symbol"][-3:]
-            if quote == quote1:
-                btc_coin[coin] = item
-            if quote == quote2:
-                eth_coin[coin] = item
-
-        ethprice = float(btc_coin[quote2]["price"])
-
-        #print("币种------ETH记价---ETH/BTC价---转成BTC价---直接BTC价--价差比")
-        find_coin = ''
-        find_profit = 0.0
-        for k, v in btc_coin.items():
-            if k in eth_coin:
-                coin2btc = float(ethprice) * float(eth_coin[k]["price"])
-                btcbuy  = float(btc_coin[k]["price"])
-                profit = (btcbuy - coin2btc) / coin2btc
-                if abs(profit) > 0.008:
-                    #print("%s\t%10.8f  %10.8f  %10.8f  %10.8f  %s"%(k, float(eth_coin[k]["price"]), round(ethprice,8), round(coin2btc, 8), btcbuy, profit))
-                    if abs(profit) > abs(find_profit):
-                        find_coin = k
-                        find_profit = profit
-
-        if find_coin != '':
-            coin_btc = find_coin + '/' + quote1
-            coin_eth = find_coin + '/' + quote2
-            fee = 0.003
-            await self.fetch_order_book(coin_btc)
-            fee += self.slippage_ratio
-            #print(coin_btc, ': bids=', self.buy_1_price, '|asks=', self.sell_1_price, '|spread%=', round(self.slippage_ratio, 4))
-            await self.fetch_order_book(coin_eth) 
-            fee += self.slippage_ratio
-            #print(coin_eth, ': bids=', self.buy_1_price, '|asks=', self.sell_1_price, '|spread%=', round(self.slippage_ratio, 4))
-            if abs(find_profit) > fee:
-                logger.info("%s \t %10.4f"%(find_coin, abs(find_profit) - fee))
 
 
 

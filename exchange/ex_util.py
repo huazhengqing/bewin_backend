@@ -5,10 +5,34 @@ from pandas import DataFrame, to_datetime
 from typing import List, Dict, Any, Optional
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
+import db
 import util
 logger = util.get_log(__name__)
 
 
+#======================================
+
+g_ex_markets = util.nesteddict()
+
+def load_markets_db(id):
+    global g_ex_markets
+    t_markets = db.Session().query(db.t_markets).filter(db.t_markets.f_ex_id == id).all()
+    for t_market in t_markets:
+        g_ex_markets[id][t_market.f_symbol] = t_market
+
+def load_markets_all():
+    for id in ccxt.exchanges:
+        load_markets_db(id)
+
+#======================================
+
+g_ex_tickers = util.nesteddict()
+
+
+
+
+
+#======================================
 
 def parse_ohlcv_dataframe(list_ohlcv: list) -> DataFrame:
     #logger.debug("parse_ohlcv_dataframe() start  len={0} ".format(len(list_ohlcv)))
@@ -34,6 +58,8 @@ def parse_ohlcv_dataframe(list_ohlcv: list) -> DataFrame:
     return frame
 
 
+
+#======================================
 
 def safe_string(dictionary, key, default_value=None):
     return ccxt.Exchange.safe_string(dictionary, key, default_value)
