@@ -13,24 +13,23 @@ requests.packages.urllib3.disable_warnings()
 dir_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(dir_root)
 from exchange.exchange_trade import exchange_trade
-from arbitrage.stat_arbitrage import stat_arbitrage
+from arbitrage.triangle import triangle
 import conf.conf_aliyun
 import conf
 import util
 logger = util.get_log(__name__)
 
 
-uesrid = 0
-ex1_id = 'binance'
-ex2_id = 'okex'
-symbol = 'EOS/BTC'
+userid = 0
+ex_id = 'binance'
+base='EOS'
+quote='ETH'
+mid='USDT'
 
-ex1 = exchange_trade.create(uesrid, ex1_id)
-ex2 = exchange_trade.create(uesrid, ex2_id)
-sa = stat_arbitrage(symbol, ex1, ex2)
-sa.rebalance_set(True, 0.5)
 
-tasks = sa.add_async_task()
+tr = triangle.create(userid, ex_id, base, quote, mid)
+tasks = tr.add_async_task()
+
 
 pending = asyncio.Task.all_tasks()
 loop = asyncio.get_event_loop()

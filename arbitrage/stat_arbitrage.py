@@ -118,10 +118,7 @@ class stat_arbitrage():
         tasks = []
         tasks.append(asyncio.ensure_future(self.ex1.run(self.ex1.fetch_order_book, self.symbol)))
         tasks.append(asyncio.ensure_future(self.ex2.run(self.ex2.fetch_order_book, self.symbol)))
-        #tasks.append(asyncio.ensure_future(self.ex1.fetch_ticker(self.symbol)))
-        #tasks.append(asyncio.ensure_future(self.ex2.fetch_ticker(self.symbol)))
-        #tasks.append(asyncio.ensure_future(self.ex1.fetch_balance()))
-        #tasks.append(asyncio.ensure_future(self.ex2.fetch_balance()))
+        tasks.append(asyncio.ensure_future(self.run(self.run_arbitrage)))
         return tasks
 
     def fetch_order_book(self):
