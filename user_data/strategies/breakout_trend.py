@@ -17,7 +17,7 @@ logger = util.get_log(__name__)
 class breakout_trend(IStrategy):
     def __init__(self)-> None:
         super(breakout_trend, self).__init__()
-        self.timeframe : int = 60
+        self.timeframe : int = 15
         self.resample_tf_240 : int = 240
 
     def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
@@ -32,21 +32,37 @@ class breakout_trend(IStrategy):
                 (dataframe['240_ha_close'] > dataframe['240_ma_high']) &
                 (dataframe['240_ha_open'] < dataframe['240_ha_close']) &
                 (dataframe['ha_open'] < dataframe['ha_close']) &
-                (dataframe['ha_high'] > dataframe['max'].shift(1)) 
+                (dataframe['close'] > dataframe['max']) 
                 #(dataframe['volume'] > dataframe['volume'].mean() * 4)
             )
             , 'buy'] = 1
-
-        latest = dataframe.iloc[-1]
-        if latest['buy'] == 1:
-            self.stoploss_absolute = latest['min'] - latest['atr']
         return dataframe
 
     def sell(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[
+            #(
+            #    (dataframe['ha_open'] > dataframe['ha_close']) &
+            #    (dataframe['low'] <= dataframe['stoploss']) 
+            #) |
             (
-                (dataframe['low'] < ta.MIN(dataframe, timeperiod=2, price='ha_low')) &
-                (dataframe['ha_open'] > dataframe['ha_close'])
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['ma_low']) 
+            ) |
+            (
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['240_stoploss']) 
+            ) |
+            (
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['min']) 
+            ) |
+            (
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['240_ma_low']) 
+            ) |
+            (
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] < dataframe['240_min'])
             ),
             'sell'] = 1
         return dataframe

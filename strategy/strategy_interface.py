@@ -55,8 +55,14 @@ class IStrategy(ABC):
         dataframe['ha_low'] = heikinashi['low']
 
         dataframe['atr'] = qtpylib.atr(dataframe, self.atr_period)
-        dataframe['volume_mean'] = dataframe['volume'].shift(1).tail(self.atr_period).mean()
-        
+        dataframe['volume_mean'] = qtpylib.rolling_mean(dataframe['volume'], self.atr_period).shift(1)
+        dataframe['stoploss'] = qtpylib.rolling_min(dataframe['ha_low'], 2).shift(1)
+
+        bollinger = qtpylib.bollinger_bands(qtpylib.typical_price(dataframe), window=20, stds=2)
+        dataframe['bb_lowerband'] = bollinger['lower']
+        dataframe['bb_upperband'] = bollinger['upper']
+        dataframe['bb_middleband'] = bollinger['mid']
+
         return dataframe
     
     def buy(self, dataframe: DataFrame) -> DataFrame:
@@ -71,8 +77,8 @@ class IStrategy(ABC):
     def sell(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe['close'] < dataframe['min']) &
-                (dataframe['ha_open'] > dataframe['ha_close'])
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['min']) 
             ),
             'sell'] = 1
         return dataframe
@@ -102,6 +108,8 @@ class IStrategy(ABC):
         df['{}_ha_close'.format(period)] = heikinashi['close']
         df['{}_ha_high'.format(period)] = heikinashi['high']
         df['{}_ha_low'.format(period)] = heikinashi['low']
+
+        df['{}_stoploss'.format(period)] = qtpylib.rolling_min(df['{}_ha_low'.format(period)], 2).shift(1)
 
         df = df.drop(columns=['open', 'high', 'low', 'close', 'volume'])
         df = df.resample(str(self.timeframe) + 'min')

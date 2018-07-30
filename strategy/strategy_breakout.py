@@ -38,8 +38,16 @@ class strategy_breakout(IStrategy):
     def sell(self, dataframe: DataFrame) -> DataFrame:
         dataframe.loc[
             (
-                (dataframe['close'] < ta.MIN(dataframe, timeperiod=2, price='ha_low')) &
-                (dataframe['ha_open'] > dataframe['ha_close'])
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['stoploss']) 
+            ) |
+            (
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['ma_low']) 
+            ) |
+            (
+                (dataframe['ha_open'] > dataframe['ha_close']) &
+                (dataframe['low'] <= dataframe['min']) 
             ),
             'sell'] = 1
         return dataframe
