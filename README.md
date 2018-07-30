@@ -46,7 +46,8 @@ pip install TA_Lib‑0.4.17‑cp36‑cp36m‑win32.whl
 ## 3lib
 
 ```shell
-pip3 install -r requirements.txt
+pip install -r requirements.txt
+pip install -U scikit-learn
 ```
 
 ## telegram 

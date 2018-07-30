@@ -61,8 +61,6 @@ Session = init()
 
 
 
-
-
 '''
     t_exchanges.session = session()
     t_exchanges.query = session.query_property()
@@ -179,6 +177,7 @@ class t_markets(_DECL_BASE):
     f_precision_price = Column(Integer, nullable=False, default=0)
     f_limits_amount_min = Column(Float, nullable=False, default=0)
     f_limits_price_min = Column(Float, nullable=False, default=0)
+    f_recommend = Column(Float, nullable=False, default=0)
     f_ts_create = Column(Integer, nullable=False, default=0)
     #f_ts = Column(Integer, nullable=False, default=datetime.utcnow)
     #f_ts_update = Column(TIMESTAMP, nullable=False, default=datetime.utcnow)

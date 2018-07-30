@@ -31,6 +31,7 @@ CREATE TABLE `t_markets` (
   `f_precision_price` bigint(20) unsigned NOT NULL COMMENT '精度',
   `f_limits_amount_min` double unsigned NOT NULL COMMENT '最小数量',
   `f_limits_price_min` double unsigned NOT NULL COMMENT '最小价格',
+  `f_recommend` double NOT NULL DEFAULT '0' COMMENT '推荐[1=成交量好;0=普通;-1=价格太低;-2=成交量太小]',
   `f_ts_create` bigint(20) unsigned NOT NULL COMMENT '上币时间',
   `f_ts` bigint(20) unsigned NOT NULL,
   `f_ts_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '表更新时间',
@@ -107,7 +108,7 @@ CREATE TABLE `t_symbols_analyze` (
   `f_breakout_price_highest_ts` bigint(20) unsigned NOT NULL DEFAULT '0' COMMENT '突破后新高时间(ms)',
   `f_breakout_rate` double NOT NULL DEFAULT '0' COMMENT '突破后当前涨幅(%)(即时更新)',
   `f_breakout_rate_max` double NOT NULL DEFAULT '0' COMMENT '突破后最大涨幅(%)',
-  `f_recommend` double unsigned NOT NULL DEFAULT '0' COMMENT '推荐分数',
+  `f_recommend` double NOT NULL DEFAULT '0' COMMENT '推荐[1=成交量好;0=普通;-1=价格太低;-2=成交量太小]',
   `f_ts_update` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   PRIMARY KEY (`f_ex_id`,`f_symbol`,`f_timeframe`),
   KEY `f_breakout_ts` (`f_breakout_ts`)
@@ -256,4 +257,21 @@ CREATE TABLE `t_user_exchange_symbol` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+/* EVENTS */;
+DROP EVENT IF EXISTS `event_update`;
+DELIMITER $$
+CREATE EVENT `event_update` ON SCHEDULE EVERY 1 HOUR STARTS '2018-07-30 22:55:23' ON COMPLETION PRESERVE ENABLE DO begin
+UPDATE `db_bewin`.`t_symbols_analyze` a,`db_bewin`.`t_ticker_crrent` b SET a.f_bid=b.f_bid,a.f_ask=b.f_ask,a.f_spread=(b.f_ask - b.f_bid) WHERE  a.f_ex_id = b.f_ex_id and a.f_symbol = b.f_symbol;
+update t_markets a,t_ticker_crrent b set a.f_recommend=-1 where a.f_ex_id=b.f_ex_id and a.f_symbol=b.f_symbol and (b.f_bid < 0.05 and b.f_symbol REGEXP '/USDT$' or b.f_bid < 0.000005 and b.f_symbol REGEXP '/BTC$' or b.f_bid < 0.0001 and b.f_symbol REGEXP '/ETH$');
+update t_markets a,t_ticker_crrent b set a.f_recommend=-2 where a.f_ex_id=b.f_ex_id and a.f_symbol=b.f_symbol and b.f_quote_volume>0 and (b.f_quote_volume < 500000 and b.f_symbol REGEXP '/USDT$' or b.f_quote_volume < 50 and b.f_symbol REGEXP '/BTC$' or b.f_quote_volume < 1000 and b.f_symbol REGEXP '/ETH$');
+update t_markets a,t_ticker_crrent b set a.f_recommend=-2 where a.f_ex_id=b.f_ex_id and b.f_ex_id='okex' and a.f_symbol=b.f_symbol and b.f_quote_volume<=0 and (b.f_base_volume*b.f_bid < 500000 and b.f_symbol REGEXP '/USDT$' or b.f_base_volume*b.f_bid < 50 and b.f_symbol REGEXP '/BTC$' or b.f_base_volume*b.f_bid < 1000 and b.f_symbol REGEXP '/ETH$');
+update t_markets a,t_ticker_crrent b set a.f_recommend=1 where a.f_ex_id=b.f_ex_id and a.f_symbol=b.f_symbol and b.f_quote_volume>0 and (b.f_quote_volume>1000000 and b.f_symbol REGEXP '/USDT$' or b.f_quote_volume>100 and b.f_symbol REGEXP '/BTC$' or b.f_quote_volume>2000 and b.f_symbol REGEXP '/ETH$');
+update t_markets a,t_ticker_crrent b set a.f_recommend=1 where a.f_ex_id=b.f_ex_id and b.f_ex_id='okex' and a.f_symbol=b.f_symbol and b.f_quote_volume<=0 and (b.f_base_volume*b.f_bid>1000000 and b.f_symbol REGEXP '/USDT$' or b.f_base_volume*b.f_bid>100 and b.f_symbol REGEXP '/BTC$' or b.f_base_volume*b.f_bid>2000 and b.f_symbol REGEXP '/ETH$');
+update t_markets a,t_symbols_analyze b set b.f_recommend=a.f_recommend where a.f_ex_id=b.f_ex_id and a.f_symbol=b.f_symbol;
+update t_symbols_analyze set f_recommend=2 where f_recommend=1 and f_timeframe=240 and f_bar_trend=1 and f_ma_trend=1 and f_bid>f_ma_up;
+
+end
+$$
+DELIMITER ;
 

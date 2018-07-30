@@ -80,8 +80,7 @@ class fetch_base():
                 await ex.load_markets()
             except Exception as e:
                 #logger.warn(traceback.format_exc())
-                #logger.warn(self.to_string() + "fetch_exchanges({0}) Exception={1}".format(id, e))
-                logger.warn(self.to_string() + "fetch_exchanges({0}) Exception ".format(id))
+                logger.warn(self.to_string() + "fetch_exchanges({0}) Exception={1}".format(id, e))
                 await ex.close()
                 return
             t_exchanges = db.t_exchanges(

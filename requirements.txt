@@ -6,6 +6,7 @@ arrow
 sqlalchemy
 cfscrape
 lxml==4.2.3
+scikit-learn
 matplotlib==2.2.2
 requests
 vaderSentiment

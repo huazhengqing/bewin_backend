@@ -170,24 +170,11 @@ class strategy_bot(object):
     def refresh_whitelist(self, ex_id):
         #logger.debug(self.to_string() + "refresh_whitelist({0})  start".format(ex_id))
         whitelist = []
-        for t_ticker_crrent in db.Session().query(db.t_ticker_crrent).filter(
-            db.t_ticker_crrent.f_ex_id == ex_id,
-            db.t_ticker_crrent.f_symbol.like('%/BTC'),
-            db.t_ticker_crrent.f_quote_volume > 10,
-        ).order_by(desc(db.t_ticker_crrent.f_quote_volume)).limit(50):
-            whitelist.append(t_ticker_crrent.f_symbol)
-        for t_ticker_crrent in db.Session().query(db.t_ticker_crrent).filter(
-            db.t_ticker_crrent.f_ex_id == ex_id,
-            db.t_ticker_crrent.f_symbol.like('%/ETH'),
-            db.t_ticker_crrent.f_quote_volume > 10,
-        ).order_by(desc(db.t_ticker_crrent.f_quote_volume)).limit(50):
-            whitelist.append(t_ticker_crrent.f_symbol)
-        for t_ticker_crrent in db.Session().query(db.t_ticker_crrent).filter(
-            db.t_ticker_crrent.f_ex_id == ex_id,
-            db.t_ticker_crrent.f_symbol.like('%/USDT'),
-            db.t_ticker_crrent.f_quote_volume > 1000,
-        ).order_by(desc(db.t_ticker_crrent.f_quote_volume)).limit(50):
-            whitelist.append(t_ticker_crrent.f_symbol)
+        for t_markets in db.Session().query(db.t_markets).filter(
+            db.t_markets.f_ex_id == ex_id,
+            db.t_markets.f_recommend >= 1.0,
+        ).all():
+            whitelist.append(t_markets.f_symbol)
         self.exchange_whitelist_auto[ex_id] = whitelist
         logger.debug(self.to_string() + "refresh_whitelist({0}) len={1}".format(ex_id, len(whitelist)))
 
